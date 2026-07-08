@@ -8,24 +8,24 @@ import static me.cortex.nvidium.gl.shader.ShaderType.COMPUTE;
 import static org.lwjgl.opengl.GL43C.glDispatchCompute;
 
 public class CmdBufferBuilder extends Phase {
-    private final Shader shader = Shader.make()
-            .addSource(COMPUTE, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/command_buffer/command_buffer_builder.comp")))
-            .compile();
+	private final Shader shader = Shader.make()
+		.addSource(COMPUTE, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/command_buffer/command_buffer_builder.comp")))
+		.compile();
 
-    public CmdBufferBuilder() {
-    }
+	public CmdBufferBuilder() {
+	}
 
-    public void dispatch(int regionCount) {
-        shader.bind();
-        timing.marker();
-        glDispatchCompute(regionCount, 1, 1);
-        timing.marker();
-        timing.tick();
-    }
+	public void dispatch(int regionCount) {
+		shader.bind();
+		timing.marker();
+		glDispatchCompute(regionCount, 1, 1);
+		timing.marker();
+		timing.tick();
+	}
 
-    @Override
-    public void delete() {
-        super.delete();
-        shader.delete();
-    }
+	@Override
+	public void delete() {
+		super.delete();
+		shader.delete();
+	}
 }

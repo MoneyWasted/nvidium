@@ -11,8 +11,8 @@ import com.mojang.blaze3d.opengl.GlDevice;
 
 @Mixin(GlDevice.class)
 public class MixinGlDevice {
-    @Inject(method = "<init>", at = @At(value = "INVOKE", target = "Lorg/lwjgl/opengl/GL;createCapabilities()Lorg/lwjgl/opengl/GLCapabilities;", shift = At.Shift.AFTER), remap = false)
-    private void init(long windowHandle, ShaderSource defaultShaderSource, GpuDebugOptions debugOptions, CallbackInfo ci) {
-        Nvidium.checkSystemIsCapable();
-    }
+	@Inject(method = "<init>", at = @At(value = "INVOKE", target = "Lorg/lwjgl/opengl/GL;createCapabilities()Lorg/lwjgl/opengl/GLCapabilities;", shift = At.Shift.AFTER), remap = false)
+	private void init(long windowHandle, ShaderSource defaultShaderSource, GpuDebugOptions debugOptions, CallbackInfo ci) {
+		Nvidium.checkSystemIsCapable();
+	}
 }

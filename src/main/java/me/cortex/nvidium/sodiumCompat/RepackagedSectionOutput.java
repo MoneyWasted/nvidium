@@ -9,7 +9,7 @@ public record RepackagedSectionOutput(int quads,
                                       short[] offsets,
                                       Vector3i min,
                                       Vector3i size) {
-    public void delete() {
-        geometry.free();
-    }
+	public void delete() {
+		geometry.free();
+	}
 }

@@ -18,21 +18,22 @@ import java.util.Collection;
 
 @Mixin(value = RenderRegionManager.class, remap = false)
 public abstract class MixinRenderRegionManager implements INvidiumWorldRendererSetter {
-    @Unique private NvidiumWorldRenderer renderer;
+	@Unique
+	private NvidiumWorldRenderer renderer;
 
-    @Inject(method = "uploadResults(Ljava/util/Collection;Lnet/caffeinemc/mods/sodium/client/render/chunk/UniformBufferManager;)V",
-            at = @At(value = "HEAD"), cancellable = true)
-    private void redirectUpload(Collection<BuilderTaskOutput> results, UniformBufferManager uniforms, CallbackInfo ci) {
-        if (Nvidium.IS_ENABLED) {
-            ci.cancel();
-            for (BuilderTaskOutput result : results) {
-                renderer.uploadBuildResult(result);
-            }
-        }
-    }
+	@Inject(method = "uploadResults(Ljava/util/Collection;Lnet/caffeinemc/mods/sodium/client/render/chunk/UniformBufferManager;)V",
+		at = @At(value = "HEAD"), cancellable = true)
+	private void redirectUpload(Collection<BuilderTaskOutput> results, UniformBufferManager uniforms, CallbackInfo ci) {
+		if (Nvidium.IS_ENABLED) {
+			ci.cancel();
+			for (BuilderTaskOutput result : results) {
+				renderer.uploadBuildResult(result);
+			}
+		}
+	}
 
-    @Override
-    public void setWorldRenderer(NvidiumWorldRenderer renderer) {
-        this.renderer = renderer;
-    }
+	@Override
+	public void setWorldRenderer(NvidiumWorldRenderer renderer) {
+		this.renderer = renderer;
+	}
 }

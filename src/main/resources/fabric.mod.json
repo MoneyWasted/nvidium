@@ -23,13 +23,17 @@
       "me.cortex.nvidium.config.ConfigGuiBuilder"
     ]
   },
-  "accessWidener" : "nvidium.accesswidener",
+  "accessWidener": "nvidium.accesswidener",
   "mixins": [
     "nvidium.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.18.4",
-    "minecraft": ["26.2"],
-    "sodium": ["0.9.0"]
+    "minecraft": [
+      "26.2"
+    ],
+    "sodium": [
+      "0.9.0"
+    ]
   }
 }

@@ -11,20 +11,22 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(value = OptionFlag.class, remap = false)
 public class MixinOptionFlag {
-    @Shadow
-    @Final
-    @Mutable
-    private static OptionFlag[] $VALUES = ArrayUtils.addAll(MixinOptionFlag.$VALUES, NvidiumOptionFlags.REQUIRES_SHADER_RELOAD);
+	static {
+		NvidiumOptionFlags.REQUIRES_SHADER_RELOAD = optionFlagCreator("REQUIRES_SHADER_RELOAD", $VALUES.length);
+	}
 
-    public MixinOptionFlag() {
-    }
+	public MixinOptionFlag() {
+	}	@Shadow
+	@Final
+	@Mutable
+	private static OptionFlag[] $VALUES = ArrayUtils.addAll(MixinOptionFlag.$VALUES, NvidiumOptionFlags.REQUIRES_SHADER_RELOAD);
 
-    @Invoker("<init>")
-    public static OptionFlag optionFlagCreator(String internalName, int internalId) {
-        throw new AssertionError();
-    }
+	@Invoker("<init>")
+	public static OptionFlag optionFlagCreator(String internalName, int internalId) {
+		throw new AssertionError();
+	}
 
-    static {
-        NvidiumOptionFlags.REQUIRES_SHADER_RELOAD = optionFlagCreator("REQUIRES_SHADER_RELOAD", $VALUES.length);
-    }
+
+
+
 }

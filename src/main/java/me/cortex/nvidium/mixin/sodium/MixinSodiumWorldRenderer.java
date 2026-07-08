@@ -29,67 +29,67 @@ import java.util.OptionalDouble;
 
 @Mixin(value = SodiumWorldRenderer.class, remap = false)
 public abstract class MixinSodiumWorldRenderer implements INvidiumWorldRendererGetter {
-    @Shadow
-    private RenderSectionManager renderSectionManager;
-    @Unique
-    private Viewport viewport;
+	@Shadow
+	private RenderSectionManager renderSectionManager;
+	@Unique
+	private Viewport viewport;
 
-    @Override
-    public NvidiumWorldRenderer getRenderer() {
-        if (Nvidium.IS_ENABLED) {
-            return ((INvidiumWorldRendererGetter) renderSectionManager).getRenderer();
-        } else {
-            return null;
-        }
-    }
+	@Override
+	public NvidiumWorldRenderer getRenderer() {
+		if (Nvidium.IS_ENABLED) {
+			return ((INvidiumWorldRendererGetter) renderSectionManager).getRenderer();
+		} else {
+			return null;
+		}
+	}
 
-    @Inject(method = "setupTerrain", at = @At(value = "HEAD"))
-    public void trackViewport(Camera camera, Viewport viewport, FogParameters fogParameters, boolean spectator, boolean updateChunksImmediately, Matrix4f cullMatrix, CallbackInfo ci) {
-        this.viewport = viewport;
-    }
+	@Inject(method = "setupTerrain", at = @At(value = "HEAD"))
+	public void trackViewport(Camera camera, Viewport viewport, FogParameters fogParameters, boolean spectator, boolean updateChunksImmediately, Matrix4f cullMatrix, CallbackInfo ci) {
+		this.viewport = viewport;
+	}
 
-    @Inject(method = "renderLayer", at = @At(value = "HEAD"), cancellable = true)
-    public void renderLayer(ChunkRenderMatrices matrices, TerrainRenderPass pass, double x, double y, double z, FogParameters fogParameters, GpuSampler terrainSampler, CallbackInfo ci) {
-        if (Nvidium.IS_ENABLED) {
-            ci.cancel();
-            if (pass == DefaultTerrainRenderPasses.CUTOUT) // Early exit, cutout will be rendered with SOLID
-                return;
+	@Inject(method = "renderLayer", at = @At(value = "HEAD"), cancellable = true)
+	public void renderLayer(ChunkRenderMatrices matrices, TerrainRenderPass pass, double x, double y, double z, FogParameters fogParameters, GpuSampler terrainSampler, CallbackInfo ci) {
+		if (Nvidium.IS_ENABLED) {
+			ci.cancel();
+			if (pass == DefaultTerrainRenderPasses.CUTOUT) // Early exit, cutout will be rendered with SOLID
+				return;
 
-            try (RenderPass ignored = RenderSystem.getDevice()
-                    .createCommandEncoder()
-                    .createRenderPass(
-                            () -> "Nvidium Terrain",
-                            pass.getTarget().getColorTextureView(),
-                            Optional.empty(),
-                            pass.getTarget().getDepthTextureView(),
-                            OptionalDouble.empty()
-                    )) {
-                GlStateManager._disableScissorTest();
-                GlStateManager._enableCull();
-                GlStateManager._enableDepthTest();
-                GlStateManager._depthFunc(GL33C.GL_GEQUAL); // reverse-Z
-                GlStateManager._colorMask(0, 15);
+			try (RenderPass ignored = RenderSystem.getDevice()
+				.createCommandEncoder()
+				.createRenderPass(
+					() -> "Nvidium Terrain",
+					pass.getTarget().getColorTextureView(),
+					Optional.empty(),
+					pass.getTarget().getDepthTextureView(),
+					OptionalDouble.empty()
+				)) {
+				GlStateManager._disableScissorTest();
+				GlStateManager._enableCull();
+				GlStateManager._enableDepthTest();
+				GlStateManager._depthFunc(GL33C.GL_GEQUAL); // reverse-Z
+				GlStateManager._colorMask(0, 15);
 
-                if (pass == DefaultTerrainRenderPasses.SOLID) {
-                    GlStateManager._disableBlend(0);
-                    GlStateManager._depthMask(true);
+				if (pass == DefaultTerrainRenderPasses.SOLID) {
+					GlStateManager._disableBlend(0);
+					GlStateManager._depthMask(true);
 
-                    this.getRenderer().renderFrame(pass, viewport, fogParameters, matrices, x, y, z, terrainSampler);
-                } else if (pass == DefaultTerrainRenderPasses.TRANSLUCENT) {
-                    GlStateManager._enableBlend(0);
-                    GlStateManager._blendFuncSeparate(
-                            GL33C.GL_SRC_ALPHA,
-                            GL33C.GL_ONE_MINUS_SRC_ALPHA,
-                            GL33C.GL_ONE,
-                            GL33C.GL_ONE_MINUS_SRC_ALPHA
-                    );
-                    GlStateManager._depthMask(false);
+					this.getRenderer().renderFrame(pass, viewport, fogParameters, matrices, x, y, z, terrainSampler);
+				} else if (pass == DefaultTerrainRenderPasses.TRANSLUCENT) {
+					GlStateManager._enableBlend(0);
+					GlStateManager._blendFuncSeparate(
+						GL33C.GL_SRC_ALPHA,
+						GL33C.GL_ONE_MINUS_SRC_ALPHA,
+						GL33C.GL_ONE,
+						GL33C.GL_ONE_MINUS_SRC_ALPHA
+					);
+					GlStateManager._depthMask(false);
 
-                    this.getRenderer().renderTranslucent(pass, terrainSampler);
-                }
-                GlStateManager._depthMask(true);
-                GlStateManager._disableBlend(0);
-            }
-        }
-    }
+					this.getRenderer().renderTranslucent(pass, terrainSampler);
+				}
+				GlStateManager._depthMask(true);
+				GlStateManager._disableBlend(0);
+			}
+		}
+	}
 }

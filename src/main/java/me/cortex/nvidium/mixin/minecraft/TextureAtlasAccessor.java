@@ -6,9 +6,9 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(TextureAtlas.class)
 public interface TextureAtlasAccessor {
-    @Invoker("getWidth")
-    int nvidium$getWidth();
+	@Invoker("getWidth")
+	int nvidium$getWidth();
 
-    @Invoker("getHeight")
-    int nvidium$getHeight();
+	@Invoker("getHeight")
+	int nvidium$getHeight();
 }

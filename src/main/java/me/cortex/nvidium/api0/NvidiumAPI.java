@@ -5,88 +5,77 @@ import me.cortex.nvidium.NvidiumWorldRenderer;
 import me.cortex.nvidium.sodiumCompat.INvidiumWorldRendererGetter;
 import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
 import org.joml.Matrix4fc;
-import org.joml.Matrix4x3fc;
 
 public class NvidiumAPI {
-    private final String modName;
-    public NvidiumAPI(String modName) {
-        this.modName = modName;
-    }
+	private final String modName;
 
-    /***
-     * Forces a render section to not render, guarantees the section will stay hidden until it is marked as visible
-     * @param x sectionX pos
-     * @param y sectionY pos
-     * @param z sectionZ pos
-     */
-    public void hideSection(int x, int y, int z) {
-        if (Nvidium.IS_ENABLED) {
-            var renderer = ((INvidiumWorldRendererGetter) SodiumWorldRenderer.instance()).getRenderer();
-            if (renderer != null) {
-                renderer.getSectionManager().setHideBit(x, y, z, true);
-            }
-        }
-    }
+	public NvidiumAPI(String modName) {
+		this.modName = modName;
+	}
 
-    /***
-     * Unhides a render section if it was previously hidden
-     * @param x sectionX pos
-     * @param y sectionY pos
-     * @param z sectionZ pos
-     */
-    public void showSection(int x, int y, int z) {
-        if (Nvidium.IS_ENABLED) {
-            var renderer = ((INvidiumWorldRendererGetter) SodiumWorldRenderer.instance()).getRenderer();
-            if (renderer != null) {
-                renderer.getSectionManager().setHideBit(x, y, z, false);
-            }
-        }
-    }
+	private NvidiumWorldRenderer getRenderer() {
+		if (!Nvidium.IS_ENABLED) return null;
+		return ((INvidiumWorldRendererGetter) SodiumWorldRenderer.instance()).getRenderer();
+	}
 
-    /***
-     * Assigns a specified region to the supplied transformation id
-     * @param id id to set the region too (all regions have the default id of 0)
-     * @param x region X pos
-     * @param y region Y pos
-     * @param z region Z pos
-     */
-    public void setRegionTransformId(int id, int x, int y, int z) {
-        if (Nvidium.IS_ENABLED) {
-            var renderer = ((INvidiumWorldRendererGetter) SodiumWorldRenderer.instance()).getRenderer();
-            if (renderer != null) {
-                renderer.getSectionManager().getRegionManager().setRegionTransformId(x, y, z, id);
-            }
-        }
-    }
+	/**
+	 * Forces a render section to not render. The section stays hidden until {@link #showSection} is called.
+	 *
+	 * @param x section X coordinate
+	 * @param y section Y coordinate
+	 * @param z section Z coordinate
+	 */
+	public void hideSection(int x, int y, int z) {
+		var renderer = getRenderer();
+		if (renderer != null) renderer.getSectionManager().setHideBit(x, y, z, true);
+	}
 
-    /***
-     * Sets the transform for the supplied id
-     * @param id The id to set the transform of
-     * @param transform The transform to set it too
-     */
-    public void setTransformation(int id, Matrix4fc transform) {
-        if (Nvidium.IS_ENABLED) {
-            var renderer = ((INvidiumWorldRendererGetter) SodiumWorldRenderer.instance()).getRenderer();
-            if (renderer != null) {
-                renderer.setTransformation(id, transform);
-            }
-        }
-    }
+	/**
+	 * Unhides a render section that was previously hidden.
+	 *
+	 * @param x section X coordinate
+	 * @param y section Y coordinate
+	 * @param z section Z coordinate
+	 */
+	public void showSection(int x, int y, int z) {
+		var renderer = getRenderer();
+		if (renderer != null) renderer.getSectionManager().setHideBit(x, y, z, false);
+	}
 
-    /***
-     * Sets the origin point of the transformation id, this is in chunk coordinates.
-     * @param id The id to set the origin of
-     * @param x Chunk coord x
-     * @param y Chunk coord y
-     * @param z Chunk coord z
-     */
-    public void setOrigin(int id, int x, int y, int z) {
-        if (Nvidium.IS_ENABLED) {
-            var renderer = ((INvidiumWorldRendererGetter) SodiumWorldRenderer.instance()).getRenderer();
-            if (renderer != null) {
-                renderer.setOrigin(id, x, y, z);
-            }
-        }
-    }
+	/**
+	 * Assigns a region to the given transformation id. All regions default to id 0.
+	 *
+	 * @param id transformation id
+	 * @param x  region X coordinate
+	 * @param y  region Y coordinate
+	 * @param z  region Z coordinate
+	 */
+	public void setRegionTransformId(int id, int x, int y, int z) {
+		var renderer = getRenderer();
+		if (renderer != null) renderer.getSectionManager().getRegionManager().setRegionTransformId(x, y, z, id);
+	}
 
+	/**
+	 * Sets the transform matrix for the given transformation id.
+	 *
+	 * @param id        transformation id
+	 * @param transform the matrix to apply
+	 */
+	public void setTransformation(int id, Matrix4fc transform) {
+		var renderer = getRenderer();
+		if (renderer != null) renderer.setTransformation(id, transform);
+	}
+
+	/**
+	 * Sets the origin (in chunk coordinates) for the given transformation id.
+	 *
+	 * @param id transformation id
+	 * @param x  chunk X coordinate
+	 * @param y  chunk Y coordinate
+	 * @param z  chunk Z coordinate
+	 */
+	public void setOrigin(int id, int x, int y, int z) {
+		var renderer = getRenderer();
+		if (renderer != null) renderer.setOrigin(id, x, y, z);
+	}
 }

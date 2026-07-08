@@ -6,54 +6,51 @@ import java.lang.ref.Cleaner;
 import java.lang.ref.Cleaner.Cleanable;
 
 public abstract class TrackedObject {
-    private final Ref ref;
-    public TrackedObject() {
-        this.ref = register(this);
-    }
+	private static final Cleaner cleaner = Cleaner.create();
+	private final Ref ref;
 
-    protected void free0() {
-        if (this.isFreed()) {
-            throw new IllegalStateException("Object " + this + " was double freed.");
-        }
-        this.ref.freedRef[0] = true;
-        this.ref.cleanable.clean();
-    }
+	public TrackedObject() {
+		this.ref = register(this);
+	}
 
-    public abstract void free();
+	public static Ref register(Object obj) {
+		String clazz = obj.getClass().getName();
+		Throwable trace = Nvidium.IS_DEBUG ? new Throwable() : null;
+		boolean[] freed = new boolean[1];
+		var clean = cleaner.register(obj, () -> {
+			if (!freed[0]) {
+				System.err.println("Object not freed: " + clazz);
+				if (trace != null) {
+					trace.printStackTrace();
+				} else {
+					System.err.println("(enable debug mode for allocation trace)");
+				}
+				System.err.flush();
+			}
+		});
+		return new Ref(clean, freed);
+	}
 
-    public void assertNotFreed() {
-        if (isFreed()) {
-            throw new IllegalStateException("Object " + this + " should not be free, but is");
-        }
-    }
+	protected void free0() {
+		if (this.isFreed()) {
+			throw new IllegalStateException("Object " + this + " was double freed.");
+		}
+		this.ref.freedRef[0] = true;
+		this.ref.cleanable.clean();
+	}
 
-    public boolean isFreed() {
-        return this.ref.freedRef[0];
-    }
+	public abstract void free();
 
-    public record Ref(Cleaner.Cleanable cleanable, boolean[] freedRef) {}
+	public void assertNotFreed() {
+		if (isFreed()) {
+			throw new IllegalStateException("Object " + this + " should not be free, but is");
+		}
+	}
 
-    private static final Cleaner cleaner = Cleaner.create();
-    public static Ref register(Object obj) {
-        String clazz = obj.getClass().getName();
-        Throwable trace;
-        if (Nvidium.IS_DEBUG) {
-            trace = new Throwable();
-        } else {
-            trace = null;
-        }
-        boolean[] freed = new boolean[1];
-        var clean = cleaner.register(obj, ()->{
-            if (!freed[0]) {
-                System.err.println("Object named: "+ clazz+" was not freed, location at:\n");
-                if (trace != null) {
-                    trace.printStackTrace();
-                } else {
-                    System.err.println("Unknown location, turn on debug mode");
-                }
-                System.err.flush();
-            }
-        });
-        return new Ref(clean, freed);
-    }
+	public boolean isFreed() {
+		return this.ref.freedRef[0];
+	}
+
+	public record Ref(Cleaner.Cleanable cleanable, boolean[] freedRef) {
+	}
 }

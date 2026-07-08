@@ -10,21 +10,19 @@ import net.caffeinemc.mods.sodium.api.util.ColorU8;
 import org.lwjgl.system.MemoryUtil;
 
 public class NvidiumCompactChunkVertex implements ChunkVertexType {
-    public static final VertexFormat VERTEX_FORMAT = VertexFormat.builder(0)
-            .addAttribute("vtx", GpuFormat.RGBA32_UINT)
-            .build();
+	public static final VertexFormat VERTEX_FORMAT = VertexFormat.builder(0)
+		.addAttribute("vtx", GpuFormat.RGBA32_UINT)
+		.build();
 
-    public static final int STRIDE = 16;
-    public static final NvidiumCompactChunkVertex INSTANCE = new NvidiumCompactChunkVertex();
-
-    private static final int POSITION_MAX_VALUE = 65536;
-    public static final int TEXTURE_MAX_VALUE = 32768;
-
-    private static final float MODEL_ORIGIN = 8.0f;
-    private static final float MODEL_RANGE = 32.0f;
-    private static final float MODEL_SCALE = MODEL_RANGE / POSITION_MAX_VALUE;
-    private static final float MODEL_SCALE_INV = POSITION_MAX_VALUE / MODEL_RANGE;
-    private static final float TEXTURE_SCALE = (1.0f / TEXTURE_MAX_VALUE);
+	public static final int STRIDE = 16;
+	public static final NvidiumCompactChunkVertex INSTANCE = new NvidiumCompactChunkVertex();
+	public static final int TEXTURE_MAX_VALUE = 32768;
+	private static final int POSITION_MAX_VALUE = 65536;
+	private static final float MODEL_ORIGIN = 8.0f;
+	private static final float MODEL_RANGE = 32.0f;
+	private static final float MODEL_SCALE = MODEL_RANGE / POSITION_MAX_VALUE;
+	private static final float MODEL_SCALE_INV = POSITION_MAX_VALUE / MODEL_RANGE;
+	private static final float TEXTURE_SCALE = (1.0f / TEXTURE_MAX_VALUE);
 
 
 //    @Override
@@ -42,57 +40,54 @@ public class NvidiumCompactChunkVertex implements ChunkVertexType {
 //        return -MODEL_ORIGIN;
 //    }
 
-    @Override
-    public VertexFormat getVertexFormat() {
-        return VERTEX_FORMAT;
-    }
+	private static int compactLight(int light) {
+		int sky = Mth.clamp((light >>> 16) & 0xFF, 8, 248);
+		int block = Mth.clamp((light >>> 0) & 0xFF, 8, 248);
 
-    @Override
-    public ChunkVertexEncoder getEncoder() {
-        return (ptr, material, vertices, sectionIndex) -> {
-            for(var vertex : vertices) {
-                int light = compactLight(vertex.light);
+		return (block << 0) | (sky << 8);
+	}
 
-                MemoryUtil.memPutInt(ptr + 0, (encodePosition(vertex.x) << 0) | (encodePosition(vertex.y) << 16));
-                MemoryUtil.memPutInt(ptr + 4, (encodePosition(vertex.z) << 0) | (encodeDrawParameters(material) << 16) | ((light&0xFF)<<24));
-                MemoryUtil.memPutInt(ptr + 8, (encodeColor(vertex.color, vertex.ao) << 0) | (((light>>8)&0xFF) << 24));
-                MemoryUtil.memPutInt(ptr + 12, encodeTexture(vertex.u, vertex.v));
+	private static int encodePosition(float v) {
+		//System.out.println(v + " " + MODEL_ORIGIN + " " + MODEL_RANGE + " " + MODEL_SCALE_INV);
+		return (int) (((MODEL_ORIGIN + v) / MODEL_RANGE) * POSITION_MAX_VALUE);
+	}
 
-                ptr += STRIDE;
-            }
-            return ptr;
-        };
-    }
+	private static int encodeDrawParameters(int material) {
+		return ((material & 0xFF) << 0);
+	}
 
+	private static int encodeColor(int color, float brightness) {
+		int r = ColorU8.normalizedFloatToByte(ColorU8.byteToNormalizedFloat(ColorABGR.unpackRed(color)) * brightness);
+		int g = ColorU8.normalizedFloatToByte(ColorU8.byteToNormalizedFloat(ColorABGR.unpackGreen(color)) * brightness);
+		int b = ColorU8.normalizedFloatToByte(ColorU8.byteToNormalizedFloat(ColorABGR.unpackBlue(color)) * brightness);
 
-    private static int compactLight(int light) {
-        int sky = Mth.clamp((light >>> 16) & 0xFF, 8, 248);
-        int block = Mth.clamp((light >>>  0) & 0xFF, 8, 248);
+		return ColorABGR.pack(r, g, b, 0x00);
+	}
 
-        return (block << 0) | (sky << 8);
-    }
+	private static int encodeTexture(float u, float v) {
+		return ((Math.round(u * TEXTURE_MAX_VALUE) & 0xFFFF) << 0) |
+			((Math.round(v * TEXTURE_MAX_VALUE) & 0xFFFF) << 16);
+	}
 
-    private static int encodePosition(float v) {
-        //System.out.println(v + " " + MODEL_ORIGIN + " " + MODEL_RANGE + " " + MODEL_SCALE_INV);
-        return (int) (((MODEL_ORIGIN + v) / MODEL_RANGE) * POSITION_MAX_VALUE);
-    }
+	@Override
+	public VertexFormat getVertexFormat() {
+		return VERTEX_FORMAT;
+	}
 
-    private static int encodeDrawParameters(int material) {
-        return ((material & 0xFF) << 0);
-    }
+	@Override
+	public ChunkVertexEncoder getEncoder() {
+		return (ptr, material, vertices, sectionIndex) -> {
+			for (var vertex : vertices) {
+				int light = compactLight(vertex.light);
 
+				MemoryUtil.memPutInt(ptr + 0, (encodePosition(vertex.x) << 0) | (encodePosition(vertex.y) << 16));
+				MemoryUtil.memPutInt(ptr + 4, (encodePosition(vertex.z) << 0) | (encodeDrawParameters(material) << 16) | ((light & 0xFF) << 24));
+				MemoryUtil.memPutInt(ptr + 8, (encodeColor(vertex.color, vertex.ao) << 0) | (((light >> 8) & 0xFF) << 24));
+				MemoryUtil.memPutInt(ptr + 12, encodeTexture(vertex.u, vertex.v));
 
-    private static int encodeColor(int color, float brightness) {
-        int r = ColorU8.normalizedFloatToByte(ColorU8.byteToNormalizedFloat(ColorABGR.unpackRed(color)) * brightness);
-        int g = ColorU8.normalizedFloatToByte(ColorU8.byteToNormalizedFloat(ColorABGR.unpackGreen(color)) * brightness);
-        int b = ColorU8.normalizedFloatToByte(ColorU8.byteToNormalizedFloat(ColorABGR.unpackBlue(color)) * brightness);
-
-        return ColorABGR.pack(r, g, b, 0x00);
-    }
-
-
-    private static int encodeTexture(float u, float v) {
-        return ((Math.round(u * TEXTURE_MAX_VALUE) & 0xFFFF) << 0) |
-                ((Math.round(v * TEXTURE_MAX_VALUE) & 0xFFFF) << 16);
-    }
+				ptr += STRIDE;
+			}
+			return ptr;
+		};
+	}
 }

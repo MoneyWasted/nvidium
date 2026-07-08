@@ -18,84 +18,72 @@ import java.io.Reader;
 import java.util.Optional;
 
 public class ShaderLoader {
-    public static String parse(Identifier path) {
-        return parse(path, ShaderDefines.builder());
-    }
+	public static String parse(Identifier path) {
+		return parse(path, ShaderDefines.builder());
+	}
 
-    public static String parse(Identifier path, ShaderDefines.Builder builder) {
-        if (Nvidium.IS_DEBUG) {
-            builder.define("DEBUG");
-        }
+	public static String parse(Identifier path, ShaderDefines.Builder builder) {
+		if (Nvidium.IS_DEBUG) {
+			builder.define("DEBUG");
+		}
 
-        for (int i = 1; i <= Nvidium.config.statistics_level.ordinal(); i++) {
-            builder.define("STATISTICS_"+StatisticsLoggingLevel.values()[i].name());
-        }
+		for (int i = 1; i <= Nvidium.config.statistics_level.ordinal(); i++) {
+			builder.define("STATISTICS_" + StatisticsLoggingLevel.values()[i].name());
+		}
 
 
-        if (Nvidium.config.translucency_sorting_level.ordinal() >= TranslucencySortingLevel.SECTIONS.ordinal()) {
-            builder.define("TRANSLUCENCY_SORTING_SECTIONS");
-        }
-        if (Nvidium.config.translucency_sorting_level == TranslucencySortingLevel.QUADS) {
-            builder.define("TRANSLUCENCY_SORTING_QUADS");
-        }
-        if (Nvidium.config.translucency_sorting_level == TranslucencySortingLevel.SODIUM) {
-            builder.define("TRANSLUCENCY_SORTING_SODIUM");
-        }
+		if (Nvidium.config.translucency_sorting_level.ordinal() >= TranslucencySortingLevel.SECTIONS.ordinal()) {
+			builder.define("TRANSLUCENCY_SORTING_SECTIONS");
+		}
+		if (Nvidium.config.translucency_sorting_level == TranslucencySortingLevel.QUADS) {
+			builder.define("TRANSLUCENCY_SORTING_QUADS");
+		}
+		if (Nvidium.config.translucency_sorting_level == TranslucencySortingLevel.SODIUM) {
+			builder.define("TRANSLUCENCY_SORTING_SODIUM");
+		}
 
-        if (Nvidium.config.render_fog) {
-            builder.define("RENDER_FOG");
-        }
+		if (Nvidium.config.render_fog) {
+			builder.define("RENDER_FOG");
+		}
 
-        if (Nvidium.config.use_sodium_vertex_format) {
-            builder.define("USE_SODIUM_VERTEX_FORMAT");
-        }
-        if (Nvidium.config.cull_degenerate_triangles) {
-            builder.define("CULL_DEGENERATE_TRIANGLES");
-        }
-        if (Nvidium.config.use_nv_fragment_shader_barycentric) {
-            builder.define("USE_NV_FRAGMENT_SHADER_BARYCENTRIC");
-        }
+		if (Nvidium.config.use_sodium_vertex_format) {
+			builder.define("USE_SODIUM_VERTEX_FORMAT");
+		}
+		if (Nvidium.config.cull_degenerate_triangles) {
+			builder.define("CULL_DEGENERATE_TRIANGLES");
+		}
+		if (Nvidium.config.use_nv_fragment_shader_barycentric) {
+			builder.define("USE_NV_FRAGMENT_SHADER_BARYCENTRIC");
+		}
 
-        builder.define("TEXTURE_MAX_SCALE", String.valueOf(NvidiumCompactChunkVertex.TEXTURE_MAX_VALUE));
+		builder.define("TEXTURE_MAX_SCALE", String.valueOf(NvidiumCompactChunkVertex.TEXTURE_MAX_VALUE));
 
-        GlslPreprocessor preprocessor = new GlslPreprocessor() {
-            @Override
-            public @Nullable String applyImport(boolean isRelative, @NonNull String path) {
-                return ShaderLoader.resolve(Identifier.parse(path));
-            }
-        };
+		GlslPreprocessor preprocessor = new GlslPreprocessor() {
+			@Override
+			public @Nullable String applyImport(boolean isRelative, @NonNull String path) {
+				return ShaderLoader.resolve(Identifier.parse(path));
+			}
+		};
 
-        String source = ShaderLoader.resolve(path);
-        source = String.join("", preprocessor.process(source));
-        source = GlslPreprocessor.injectDefines(source, builder.build());
+		String source = ShaderLoader.resolve(path);
+		source = String.join("", preprocessor.process(source));
+		source = GlslPreprocessor.injectDefines(source, builder.build());
 
-        return source;
-    }
+		return source;
+	}
 
-    public static String resolve(Identifier id) {
-        ResourceManager rm = Minecraft.getInstance().getResourceManager();
+	public static String resolve(Identifier id) {
+		ResourceManager rm = Minecraft.getInstance().getResourceManager();
 
-        Optional<Resource> res = rm.getResource(id.withPrefix("shaders/"));
-        if (res.isEmpty()) {
-            throw new IllegalStateException("Failed to find shader " + id.getPath());
-        }
+		Optional<Resource> res = rm.getResource(id.withPrefix("shaders/"));
+		if (res.isEmpty()) {
+			throw new IllegalStateException("Failed to find shader: " + id.getPath());
+		}
 
-        try {
-            Reader reader = res.get().openAsReader();
-            String source = "#error shader didn't load";
-            try {
-                source = IOUtils.toString(reader);
-            } catch (IOException e) {
-                System.out.println("Nvidium shader reader error");
-            }
-
-            if (reader != null) {
-                reader.close();
-            }
-
-            return source;
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to open resource reader, wtf is going on");
-        }
-    }
+		try (Reader reader = res.get().openAsReader()) {
+			return IOUtils.toString(reader);
+		} catch (IOException e) {
+			throw new IllegalStateException("Failed to read shader: " + id.getPath(), e);
+		}
+	}
 }

@@ -9,21 +9,21 @@ import static org.lwjgl.opengl.NVMeshShader.glDrawMeshTasksNV;
 
 public class SectionRasterizer extends Phase {
 
-    private final Shader shader = Shader.make()
-            .addSource(TASK, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/section_raster/task.glsl")))
-            .addSource(MESH, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/section_raster/mesh.glsl")))
-            .addSource(FRAGMENT, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/section_raster/fragment.glsl"))).compile();
+	private final Shader shader = Shader.make()
+		.addSource(TASK, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/section_raster/task.glsl")))
+		.addSource(MESH, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/section_raster/mesh.glsl")))
+		.addSource(FRAGMENT, ShaderLoader.parse(Identifier.fromNamespaceAndPath("nvidium", "occlusion/section_raster/fragment.glsl"))).compile();
 
-    public void raster(int regionCount) {
-        shader.bind();
-        timing.marker();
-        glDrawMeshTasksNV(0,regionCount);
-        timing.marker();
-        timing.tick();
-    }
+	public void raster(int regionCount) {
+		shader.bind();
+		timing.marker();
+		glDrawMeshTasksNV(0, regionCount);
+		timing.marker();
+		timing.tick();
+	}
 
-    public void delete() {
-        super.delete();
-        shader.delete();
-    }
+	public void delete() {
+		super.delete();
+		shader.delete();
+	}
 }
