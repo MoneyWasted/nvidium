@@ -50,7 +50,6 @@ void emitParital(uint batchIdx, int visIndex) {
     gl_MeshPrimitivesNV[batchIdx * 12 + 8 + tid].gl_PrimitiveID = visIndex;
 }
 
-//TODO: Check if the section can be culled via fog
 void main() {
     uint baseIdx = gl_WorkGroupID.x * 4;
     if (baseIdx >= sectionCount) {
@@ -74,15 +73,10 @@ void main() {
     int visibilityIndex = int(_visOutBase|currentSectionIdx);
 
     uint8_t lastData = sectionVisibility[visibilityIndex];
-    // this is almost 100% guarenteed not needed afaik
-    //barrier();
-
     ivec4 header = sectionData[_offset|currentSectionIdx].header;
-    //If the section header was empty or the hide section bit is set, return
 
-    //NOTE: technically this has the infinitly small probability of not rendering a block if the block is located at
-    // 0,0,0 the only block in the chunk and the first thing in the buffer
-    // to fix, also check that the ranges are null
+    // Skip empty sections and hidden sections (bit 17 of header.y)
+    // Edge case: a single block at (0,0,0) could pass sectionEmpty but is safe in practice
     if (sectionEmpty(header) || (header.y&(1<<17)) != 0) {
         if (tid == 0) {
             sectionVisibility[visibilityIndex] = uint8_t(0);
@@ -105,7 +99,6 @@ void main() {
     vec3 corner = vec3(relativeChunkPos<<4);
     vec3 cornerCopy = corner;
 
-    //TODO: try mix instead or something other than just ternaries, i think they get compiled to a cmov type instruction but not sure
     corner += vec3(((tid&1)==0)?mins.x:maxs.x, ((tid&4)==0)?mins.y:maxs.y, ((tid&2)==0)?mins.z:maxs.z);
     gl_MeshVerticesNV[gl_LocalInvocationID.x].gl_Position = (MVP*(regionTransform*vec4(corner, 1.0)));
 
@@ -121,9 +114,8 @@ void main() {
         vec3 maxPos = maxs + cornerCopy;
         bool isInSection = all(lessThan(minPos, vec3(ADD_SIZE))) && all(lessThan(vec3(-ADD_SIZE), maxPos));
 
-        //Shift and set, this gives us a bonus of having the last 8 frames as visibility history
-        sectionVisibility[visibilityIndex] = uint8_t(lastData<<1) | uint8_t(isInSection?1:0);//Inject visibility aswell
-        //sectionVisibility[visibilityIndex] = uint8_t(lastData<<1) | uint8_t(0);
+        // Shift history left and inject current visibility; retains last 8 frames
+        sectionVisibility[visibilityIndex] = uint8_t(lastData<<1) | uint8_t(isInSection?1:0);
     }
     if (gl_LocalInvocationID.x == 0) {
         gl_PrimitiveCountNV = 48;

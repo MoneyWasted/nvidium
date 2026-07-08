@@ -28,7 +28,7 @@ shared float depthBuffers[32];
 layout(local_size_x = 32) in;
 layout(triangles, max_vertices=128, max_primitives=64) out;
 
-//originAndBaseData.w is in quad count space, so is endIdx
+// originAndBaseData.w is in quad-count space, as is endIdx
 taskNV in Task {
     vec4 originAndBaseData;
     uint quadCount;
@@ -149,23 +149,22 @@ void performTranslucencySort() {
 }
 #endif
 
-//TODO: extra per quad culling
 void main() {
     #ifdef TRANSLUCENCY_SORTING_QUADS
     depthBuffers[gl_LocalInvocationID.x] = -99999999.0f;
     #endif
-    if ((gl_GlobalInvocationID.x)>=quadCount) { //If its over the quad count, dont render
+    if (gl_GlobalInvocationID.x >= quadCount) {
         return;
     }
 
     emitQuadIndicies();
 
-    //Each pair of meshlet invokations emits 4 vertices each and 2 primative each
+    // Each pair of meshlet invocations emits 4 vertices and 2 primitives
     uint id;
     #ifdef TRANSLUCENCY_SORTING_SODIUM
-    if (translucencyIndex == -1) { // If no translucency data, fallback to quad order
+    if (translucencyIndex == -1) { // no sorting data: use natural quad order
         id = (floatBitsToUint(originAndBaseData.w) + gl_GlobalInvocationID.x)<<2;
-    } else { // If we have sorting data, process the vertex at the index translucencyIndexData
+    } else { // use sorted index to emit vertices in depth order
         id = (floatBitsToUint(originAndBaseData.w) + translucencyIndexData[translucencyIndex + gl_GlobalInvocationID.x])<<2;
     }
     #else
@@ -179,7 +178,7 @@ void main() {
     barrier();
     memoryBarrierShared();
 
-    //If we are at the start, dont want to render as it contains garbled data (out of bounds)
+    // Jiggled entries at the start may be out of bounds — emit degenerate clip-space vertices
     if (gl_GlobalInvocationID.x < jiggle) {
         gl_MeshVerticesNV[(gl_LocalInvocationID.x<<2)+0].gl_Position = vec4(1,1,1,-1);
         gl_MeshVerticesNV[(gl_LocalInvocationID.x<<2)+1].gl_Position = vec4(1,1,1,-1);
@@ -203,8 +202,6 @@ void main() {
     gl_MeshPrimitivesNV[(gl_LocalInvocationID.x<<1)|1].gl_PrimitiveID = int((id>>2)<<1)|1;
 
     if (gl_LocalInvocationID.x == 0) {
-        //Remaining quads in workgroup
-        gl_PrimitiveCountNV = min(uint(int(quadCount)-int(gl_WorkGroupID.x<<5))<<1, 64);//2 primatives per quad
+        gl_PrimitiveCountNV = min(uint(int(quadCount)-int(gl_WorkGroupID.x<<5))<<1, 64); // 2 primitives per quad
     }
-
 }

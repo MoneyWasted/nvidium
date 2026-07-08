@@ -21,7 +21,7 @@ layout(binding = 1) uniform sampler2D tex_light;
 #moj_import <sodium:include/fog.glsl>
 #endif
 
-//It seems like for terrain at least, the sweat spot is ~16 quads per mesh invocation (even if the local size is not 32 )
+// ~16 quads per mesh invocation is the sweet spot for terrain
 layout(local_size_x = 32) in;
 layout(triangles, max_vertices=64, max_primitives=32) out;
 
@@ -45,22 +45,14 @@ taskNV in Task {
 };
 
 
-//Do a binary search via global invocation index to determine the base offset
-// Note, all threads in the work group are probably going to take the same path
+// Binary search by global invocation index to determine the base quad offset.
+// All threads in a workgroup will likely take the same branch.
 uint getOffset() {
     uint gii = gl_GlobalInvocationID.x>>1;
     bvec4 le = lessThan(uvec4(gii), binStarts);
-    /*
-    //This is so jank and funny
-    return dot(binOffsets,notEqual(bvec4(ge.yzw,true), not(ge.xyzw)));
-    */
 
-    //TODO:IDEA, since x is always false (i.e. binStarts[0] == 0) we can use that extra space to pack more of the offset bits
-    // this allows us to use a single uvec4 to transmit an entire section
-    // since max size is 16 bit, we need 2/3 extra bits to store worst case, which we can
-    // it does mean we need to readd the baseOffset to the task, but that contains inbuilt start offset of binOffsets.x
     uint retval = binOffsets.w;
-    if (le.y) {//x is always true
+    if (le.y) { // le.x is always true (binStarts[0] == 0)
         retval = binOffsets.x;
     } else if (le.z) {
         retval = binOffsets.y;
@@ -97,16 +89,15 @@ void putVertex(uint id, Vertex V) {
 
 void main() {
     if (gl_LocalInvocationIndex == 0) {
-        gl_PrimitiveCountNV = 0;//Set the prim count to 0
+        gl_PrimitiveCountNV = 0;
     }
 
-    if (quadCount<=(gl_GlobalInvocationID.x>>1)) {
+    if (quadCount <= (gl_GlobalInvocationID.x >> 1)) {
         return;
     }
 
     uint quadId = getOffset();
 
-    //If its over, dont render
     if (quadId == uint(-1)) {
         return;
     }
@@ -114,13 +105,12 @@ void main() {
 
     bool triangle1 = (gl_LocalInvocationIndex & uint(1)) == 1;
 
-    //Load corner point, alterenated w.r.t neighbor thread
+    // Corner vertex: alternated relative to neighbor thread
     Vc = terrainData[(quadId<<2)+(triangle1?2:0)];
 
-    //Load our unique vertex V1 or V3 depending on triangle0
+    // Unique vertex: V1 or V3 depending on which triangle
     V = terrainData[(quadId<<2)+(triangle1?3:1)];
 
-    //Transform common and our vertices
     pVc = transformVertex(Vc);
     pV = transformVertex(V);
 
@@ -128,11 +118,11 @@ void main() {
     bool peerDraw = true;
 
 #ifdef CULL_DEGENERATE_TRIANGLES
-    { //Compute the bounding pixels of the current triangle in the quad. note, vertex 0 and 2 are the common verticies
+    { // Compute triangle screen-space bounding box; vertices 0 and 2 are shared
         vec2 ssmin = ((pVc.xy/pVc.w)+1)*screenSize;
         vec2 ssmax = ssmin;
 
-        //We exchange data of side thread common vertex here
+        // Exchange common vertex data with the paired thread
         vec2 pVc2 = subgroupShuffleXor(ssmin, 1u);
         ssmin = min(ssmin, pVc2);
         ssmax = max(ssmax, pVc2);
@@ -141,14 +131,13 @@ void main() {
         vec2 tmin = min(ssmin, point);
         vec2 tmax = max(ssmax, point);
 
-        //Possibly cull the triangles if they dont cover the center of a pixel on the screen (degen)
+        // Cull if the triangle doesn't cover the center of any screen pixel
         float degenBias = 0.01f;
         draw = all(notEqual(round(tmin-degenBias),round(tmax+degenBias)));
 
-        // Exchage results with neighbor
+        // Exchange cull result with the paired thread
         peerDraw = subgroupShuffleXor(draw, 1u);
 
-        // Abort if quad got culled
         if (!(draw || peerDraw)) {
             return;
         }
@@ -156,36 +145,29 @@ void main() {
     #endif
 
     uint qId = (gl_LocalInvocationIndex&uint(~1))*2;
-    //emit the common vertex
+    // Emit the shared corner vertex
     gl_MeshVerticesNV[qId+uint(triangle1)].gl_Position = pVc;
     putVertex(qId+uint(triangle1), Vc);
     if (draw) {
         uint uId = qId+uint(triangle1)+2;
-        //emit our vertex
         gl_MeshVerticesNV[uId].gl_Position = pV;
         putVertex(uId, V);
 
-        //Unsure if this is needed
-        //subgroupBarrier();
         uint triId = subgroupExclusiveAdd(1);
 
-        //Note indexing is bit funky here since we inserted in inverted order vert 0 is at idx 1 and vert 2 is at 0
-        gl_PrimitiveIndicesNV[triId * 3 + 0] = qId+uint(triangle1); // Common vertex 1
-        gl_PrimitiveIndicesNV[triId * 3 + 1] = uId; //Emit unique vertex
-        gl_PrimitiveIndicesNV[triId * 3 + 2] = qId+uint(!triangle1); // Common vertex 2
+        // Vertex indices are inserted in inverted order: vert 0 is at idx 1, vert 2 is at idx 0
+        gl_PrimitiveIndicesNV[triId * 3 + 0] = qId+uint(triangle1);  // shared vertex 1
+        gl_PrimitiveIndicesNV[triId * 3 + 1] = uId;                   // unique vertex
+        gl_PrimitiveIndicesNV[triId * 3 + 2] = qId+uint(!triangle1);  // shared vertex 2
 
-        //Emit primitive
         gl_MeshPrimitivesNV[triId].gl_PrimitiveID = int(quadId<<1) | int(triangle1);
 
         uint triCount = subgroupMax(triId);
         if (subgroupElect()) {
             gl_PrimitiveCountNV = triCount+1;
             #ifdef STATISTICS_CULL
-            atomicAdd(statistics_buffer+3, (32-1)-triCount); // Count culled triangles
+            atomicAdd(statistics_buffer+3, (32-1)-triCount); // count culled triangles
             #endif
         }
     }
-
-    //Common vertex depending on warp id
-    //putVertex(vertBase, triangle0 ? V0 : V2);
 }

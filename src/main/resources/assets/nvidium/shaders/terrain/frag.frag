@@ -6,8 +6,6 @@
 #extension GL_NV_bindless_texture : require
 #extension GL_NV_shader_buffer_load : require
 
-//#extension GL_NV_conservative_raster_underestimation : enable
-
 #ifdef USE_NV_FRAGMENT_SHADER_BARYCENTRIC
 #extension GL_NV_fragment_shader_barycentric : require
 #endif
@@ -47,8 +45,7 @@ void computeOutputColour(inout vec3 colour) {
 #endif
 
 #ifdef RENDER_FOG
-//2 ways to do it, either use an interpolation, or screenspace reversal, screenspace reversal is better when many many vertices
-// however interpolation increases ISBE
+// Fog applied via screen-space position reversal (better than interpolation for high vertex counts)
 void applyFog(inout vec4 colour) {
 
 #ifdef USE_NV_FRAGMENT_SHADER_BARYCENTRIC
@@ -114,9 +111,9 @@ vec4 sampleRGSS(vec2 uv, vec2 du, vec2 dv, vec2 texelScreenSize) {
 }
 
 void main() {
-    uint quadId = uint(gl_PrimitiveID)>>1;
-    bool triangle0 = uint((gl_PrimitiveID)&1)==0;
-    uvec3 TRI_INDICIES = triangle0?uvec3(0,1,2):uvec3(2,3,0);
+    uint quadId = uint(gl_PrimitiveID) >> 1;
+    bool triangle0 = (uint(gl_PrimitiveID) & 1) == 0;
+    uvec3 TRI_INDICIES = triangle0 ? uvec3(0,1,2) : uvec3(2,3,0);
     V0 = terrainData[(quadId<<2)+TRI_INDICIES.x];
     Vp = terrainData[(quadId<<2)+TRI_INDICIES.y];
     V2 = terrainData[(quadId<<2)+TRI_INDICIES.z];

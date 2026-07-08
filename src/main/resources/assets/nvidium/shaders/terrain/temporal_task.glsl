@@ -1,5 +1,5 @@
 #version 460
-//Temporal task shader
+// Temporal task shader
 #extension GL_ARB_shading_language_include : enable
 #pragma optionNV(unroll all)
 #define UNROLL_LOOP
@@ -13,8 +13,7 @@
 
 #moj_import <nvidium:occlusion/scene.glsl>
 
-
-//This is 1 since each task shader workgroup -> multiple meshlets. its not each globalInvocation (afaik)
+// local_size_x=1: each workgroup maps to multiple meshlets, not invocations
 layout(local_size_x=1) in;
 
 #moj_import <nvidium:terrain/task_common2.glsl>

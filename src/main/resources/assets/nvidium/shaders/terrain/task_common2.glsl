@@ -1,7 +1,7 @@
 #define MESH_WORKLOAD_PER_INVOCATION 32
 
 taskNV out Task {
-    //Very compacted search indexs and data
+    // Compacted binary search indices and offsets
     uvec4 binStarts;
     uvec4 binOffsets;
 
@@ -20,7 +20,6 @@ uint buildBinData(out uvec4 starts, out uvec4 offsets, out uint sum, uint off, u
     sum = 0;
     starts = uvec4(-1);
     offsets = uvec4(-1);
-    //uint off = off;
     uint i = 0;
 
     BIN(a.x, cA.x);
@@ -36,7 +35,7 @@ uint buildBinData(out uvec4 starts, out uvec4 offsets, out uint sum, uint off, u
 }
 #undef BIN
 
-//Populate the tasks with respect to the chunk face visibility
+// Populate tasks based on chunk face visibility
 void populateTasks(ivec3 relative, uint baseOffset, uvec4 ranges) {
     uvec3 cA_ = ranges.xyz&0xFFFFu;
     uvec3 cB_ = ranges.xyz>>16;
@@ -50,13 +49,13 @@ void populateTasks(ivec3 relative, uint baseOffset, uvec4 ranges) {
     uvec4 starts;
     uvec4 offsets;
     uint sum;
-    //Note: the + baseOffset here is a cheaky thing which means dont need to add or pass on
+    // Adding baseOffset here avoids needing to pass it separately downstream
     uint ci = buildBinData(starts, offsets, sum, (ranges.w>>16)+baseOffset, ranges.w&0xFFFFu, a, b, cA, cB);
 
     binStarts = starts;
-    binOffsets = offsets-starts;//Make it a delta from start
+    binOffsets = offsets - starts; // Store delta from start rather than absolute offset
 
     quadCount = sum;
-    //Emit enough mesh shaders such that max(gl_GlobalInvocationID.x)>=2*quadCount
+    // Emit enough mesh shaders such that max(gl_GlobalInvocationID.x) >= 2*quadCount
     gl_TaskCountNV = ((sum*2)+MESH_WORKLOAD_PER_INVOCATION-1)/MESH_WORKLOAD_PER_INVOCATION;
 }

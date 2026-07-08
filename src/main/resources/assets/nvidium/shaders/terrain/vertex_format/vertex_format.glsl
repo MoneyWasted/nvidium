@@ -11,7 +11,7 @@ float getVertexAlphaCutoff(uint v) {
 }
 
 vec4 sampleLight(vec2 uv) {
-    //Its divided by 16 to match sodium/vanilla (it can never be 1 which is funny)
+    // Divided by 16 to match Sodium/vanilla light levels (value is never exactly 1.0)
     return vec4(texture(tex_light, uv).rgb, 1);
 }
 

@@ -1,5 +1,5 @@
-#define MODEL_SCALE        32.0 / 65536.0
-#define MODEL_ORIGIN       8.0
+#define MODEL_SCALE  (32.0 / 65536.0)
+#define MODEL_ORIGIN 8.0
 
 vec3 decodeVertexPosition(Vertex v) {
     uvec3 packed_position = uvec3(

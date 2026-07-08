@@ -60,9 +60,8 @@ void main() {
         return;
     }
 
-    //FIXME: It might actually be more efficent to just upload the region data straight into the ubo
-    // this remove an entire level of indirection and also puts region data in the very fast path
-    Region data = regionData[regionIndicies[visibilityIndex]];//fetch the region data
+    // TODO: uploading region data directly into the UBO would remove one level of indirection
+    Region data = regionData[regionIndicies[visibilityIndex]];
 
     if (data.a == uint64_t(-1)) {
         if (tid == 0) regionVisibility[visibilityIndex] = uint8_t(0);

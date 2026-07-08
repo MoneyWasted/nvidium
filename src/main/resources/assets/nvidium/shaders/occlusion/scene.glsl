@@ -16,13 +16,13 @@ struct Vertex {
 #define Vertex uvec4
 #endif
 
-// this is cause in the section rasterizer you get less cache misses thus higher throughput
+// Section data is tightly packed to improve cache hit rate in the section rasterizer
 struct Section {
     ivec4 header;
-    //Header.x -> 0-3=offsetx 4-7=sizex 8-31=chunk x
-    //Header.y -> 0-3=offsetz 4-7=sizez 8-31=chunk z
-    //Header.z -> 0-3=offsety 4-7=sizey 8-15=chunk y
-    //Header.w -> quad offset
+    // header.x: bits 0-3=offsetX  4-7=sizeX   8-31=chunkX
+    // header.y: bits 0-3=offsetZ  4-7=sizeZ   8-31=chunkZ
+    // header.z: bits 0-3=offsetY  4-7=sizeY   8-15=chunkY
+    // header.w: quad offset
     ivec4 renderRanges;
     int   translucencyDataIdx;
 };
@@ -41,7 +41,6 @@ uint unpackRegionTransformId(Region region) {
 }
 
 ivec3 unpackRegionPosition(Region region) {
-    //TODO: optimize
     int x = int(int64_t(region.a<<(64-24-24))>>(64-24));
     int y = (int(region.a)<<8)>>8;
     int z = int(int64_t(region.b)>>(64-24));
@@ -59,8 +58,9 @@ bool sectionEmpty(ivec4 header) {
 
 
 layout(std140, binding=0) uniform SceneData {
-    //Need to basicly go in order of alignment
-    //align(16)
+    // Fields must be ordered by alignment (largest first)
+
+    // align(16)
     mat4 MVP;
     #ifdef RENDER_FOG
     mat4 MVPInv;
@@ -68,32 +68,26 @@ layout(std140, binding=0) uniform SceneData {
     ivec4 chunkPosition;
     vec4 subchunkOffset;
 
-    //vec4  subChunkPosition;//The subChunkTranslation is already done inside the MVP
-    //align(8)
-    readonly restrict uint16_t *regionIndicies;//Pointer to block of memory at the end of the SceneData struct, also mapped to be a uniform
+    // align(8)
+    readonly restrict uint16_t *regionIndicies; // mapped to end of SceneData, also bound as uniform
     readonly restrict Region *regionData;
     restrict Section *sectionData;
-    //NOTE: for the following, can make it so that region visibility actually uses section visibility array
     restrict uint8_t *regionVisibility;
     restrict uint8_t *sectionVisibility;
     restrict u8vec3  *sectionIndices;
-    //Terrain command buffer, the first 4 bytes are actually the count
     writeonly restrict uvec2 *terrainCommandBuffer;
     writeonly restrict uvec2 *translucencyCommandBuffer;
     writeonly restrict uvec2 *temporalCommandBuffer;
 
     readonly restrict uint16_t *sortingRegionList;
 
-    //TODO:FIXME: only apply non readonly to translucency mesh
-    restrict Vertex *terrainData;//readonly
+    // TODO: restrict terrainData to readonly except for translucency mesh
+    restrict Vertex *terrainData;
     restrict uint   *translucencyIndexData;
 
-    //TODO: possibly make this a uniform instead of a buffer, but it might get quite large is the issue
+    // TODO: consider a uniform instead of a buffer — but it can get large
     readonly restrict mat4 *transformationArray;
     readonly restrict uint64_t *originArray;
-
-    //readonly restrict u64vec4 *terrainData;
-    //uvec4 *terrainData;
 
     uint32_t *statistics_buffer;
 
@@ -108,9 +102,9 @@ layout(std140, binding=0) uniform SceneData {
 
     uint flags;
 
-    //align(2)
-    uint16_t regionCount;//Number of regions in regionIndicies
-    //align(1)
+    // align(2)
+    uint16_t regionCount; // number of regions in regionIndicies
+    // align(1)
     uint8_t frameId;
 };
 

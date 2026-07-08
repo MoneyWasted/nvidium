@@ -15,10 +15,10 @@
 
 #define MESH_WORKLOAD_PER_INVOCATION 32
 
-//This is 1 since each task shader workgroup -> multiple meshlets. its not each globalInvocation (afaik)
+// local_size_x=1: each workgroup maps to multiple meshlets, not invocations
 layout(local_size_x=1) in;
 
-//In here add an array that is then "logged" on in the mesh shader to find the draw data
+// Task data is consumed by the mesh shader to determine draw parameters
 taskNV out Task {
     vec4 originAndBaseData;
     uint quadCount;
@@ -44,15 +44,14 @@ void main() {
 
     quadCount = ((sectionData[sectionId].renderRanges.w>>16)&0xFFFF);
     #ifdef TRANSLUCENCY_SORTING_QUADS
-    jiggle = uint8_t(min(quadCount>>1,(uint(frameId)&1)));//Jiggle by 1 quads (either 0 or 1)//*15
-    //jiggle = uint8_t(0);
+    jiggle = uint8_t(min(quadCount>>1,(uint(frameId)&1))); // jitter by 0 or 1 quads per frame
     quadCount += jiggle;
     originAndBaseData.w = uintBitsToFloat(baseDataOffset - uint(jiggle));
     #else
     originAndBaseData.w = uintBitsToFloat(baseDataOffset);
     #endif
 
-    //Emit enough mesh shaders such that max(gl_GlobalInvocationID.x)>=quadCount
+    // Emit enough mesh shaders such that max(gl_GlobalInvocationID.x) >= quadCount
     gl_TaskCountNV = (quadCount+MESH_WORKLOAD_PER_INVOCATION-1)/MESH_WORKLOAD_PER_INVOCATION;
 
     #ifdef STATISTICS_QUADS
