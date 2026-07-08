@@ -19,7 +19,6 @@ import net.caffeinemc.mods.sodium.client.render.chunk.terrain.DefaultTerrainRend
 import net.caffeinemc.mods.sodium.client.util.NativeBuffer;
 import net.minecraft.core.SectionPos;
 import org.joml.Vector3i;
-import org.joml.Vector4i;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.IntBuffer;
@@ -202,8 +201,14 @@ public class SectionManager {
 		int py = (section.getChunkY() & 0x1FF) << 8 | size.y << 4 | min.y | (hideSectionBitSet ? 1 << 17 : 0) | ((regionManager.getSectionRefId(sectionIdx)) << 18);
 		int pz = section.getChunkZ() << 8 | size.z << 4 | min.z;
 		int pw = terrainAddress;
-		new Vector4i(px, py, pz, pw).getToAddress(metadata);
-		metadata += 4 * 4;
+		MemoryUtil.memPutInt(metadata, px);
+		metadata += 4;
+		MemoryUtil.memPutInt(metadata, py);
+		metadata += 4;
+		MemoryUtil.memPutInt(metadata, pz);
+		metadata += 4;
+		MemoryUtil.memPutInt(metadata, pw);
+		metadata += 4;
 
 		//Write the geometry offsets, packed into ints
 		for (int i = 0; i < 4; i++) {

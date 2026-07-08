@@ -90,6 +90,11 @@ public class RenderPipeline {
 	private final IDeviceMappedBuffer transformationArray;
 	private final IDeviceMappedBuffer originOffsetArray;
 	private final BitSet regionVisibilityTracker;
+	private final IntArrayList visibleRegionOrder = new IntArrayList();
+	private final short[] regionMapScratch;
+	private final Matrix4f viewProjection = new Matrix4f();
+	private final Matrix4f inverseViewProjection = new Matrix4f();
+	private final Vector3f cameraDelta = new Vector3f();
 	//Set of regions that need to be sorted
 	private final IntSet regionsToSort = new IntOpenHashSet();
 	private final Statistics stats;
@@ -131,6 +136,7 @@ public class RenderPipeline {
 		regionSortingList = device.createDeviceOnlyMappedBuffer(maxRegions * 2L);
 		this.transformationArray = device.createDeviceOnlyMappedBuffer(RegionManager.MAX_TRANSFORMATION_COUNT * (4 * 4 * 4));
 		this.originOffsetArray = device.createDeviceOnlyMappedBuffer(RegionManager.MAX_TRANSFORMATION_COUNT * 8);
+		this.regionMapScratch = new short[maxRegions];
 
 		regionVisibilityTracker = new BitSet(maxRegions);
 		regionVisibilityTracking = new RegionVisibilityTracker(downloadStream, maxRegions);
@@ -179,8 +185,12 @@ public class RenderPipeline {
 	public void renderFrame(TerrainRenderPass pass, Viewport viewport, FogParameters fogParameters, ChunkRenderMatrices crm, double px, double py, double pz, GpuSampler terrainSampler) {
 		if (sectionManager.getRegionManager().regionCount() == 0) return;
 
-		Vector3i blockPos = new Vector3i((int) Math.floor(px), (int) Math.floor(py), (int) Math.floor(pz));
-		Vector3i chunkPos = new Vector3i(blockPos.x >> 4, blockPos.y >> 4, blockPos.z >> 4);
+		int blockX = (int) Math.floor(px);
+		int blockY = (int) Math.floor(py);
+		int blockZ = (int) Math.floor(pz);
+		int chunkX = blockX >> 4;
+		int chunkY = blockY >> 4;
+		int chunkZ = blockZ >> 4;
 
 		int screenWidth = Minecraft.getInstance().getWindow().getWidth();
 		int screenHeight = Minecraft.getInstance().getWindow().getHeight();
@@ -200,17 +210,18 @@ public class RenderPipeline {
 		long queryAddr = 0;
 		var rm = sectionManager.getRegionManager();
 
-		short[] regionMap;
+		short[] regionMap = this.regionMapScratch;
 		//Enqueue all the visible regions
 		{
 
 			//The region data indicies is located at the end of the sceneUniform
-			IntSortedSet regions = new IntAVLTreeSet();
+			IntArrayList regions = this.visibleRegionOrder;
+			regions.clear();
 			for (int i = 0; i < rm.maxRegionIndex(); i++) {
 				if (!rm.regionExists(i)) continue;
 				if ((Nvidium.config.region_keep_distance != 257 && Nvidium.config.region_keep_distance != 32 &&
-					Nvidium.config.region_keep_distance > Minecraft.getInstance().options.getEffectiveRenderDistance())
-					&& !rm.withinSquare(Nvidium.config.region_keep_distance + 4, i, chunkPos.x, chunkPos.y, chunkPos.z)) {
+					Nvidium.config.region_keep_distance > Minecraft.getInstance().options.getEffectiveRenderDistance()) &&
+					!rm.withinSquare(Nvidium.config.region_keep_distance + 4, i, chunkX, chunkY, chunkZ)) {
 					removeRegion(i);
 					continue;
 				}
@@ -218,7 +229,7 @@ public class RenderPipeline {
 				if (rm.isRegionVisible(viewport, i)) {
 					//Note, its sorted like this because of overdraw, also the translucency command buffer is written to
 					// in a reverse order to this in the section_raster/task.glsl shader
-					regions.add(((rm.distance(i, chunkPos.x, chunkPos.y, chunkPos.z)) << 16) | i);
+					regions.add(((rm.distance(i, chunkX, chunkY, chunkZ)) << 16) | i);
 					visibleRegions++;
 					regionVisibilityTracker.set(i);
 
@@ -238,18 +249,17 @@ public class RenderPipeline {
 
 			}
 
-			regionMap = new short[regions.size()];
 			if (visibleRegions == 0) {
 				prevRegionCount = 0;
 				return;
 			}
+			IntArrays.quickSort(regions.elements(), 0, regions.size());
 			long addr = uploadStream.upload(sceneUniform, SCENE_SIZE, visibleRegions * 2);
 			queryAddr = addr;//This is ungodly hacky
-			int j = 0;
-			for (int i : regions) {
-				regionMap[j] = (short) i;
-				MemoryUtil.memPutShort(addr + ((long) j << 1), (short) i);
-				j++;
+			for (int j = 0, size = regions.size(); j < size; j++) {
+				short regionId = (short) regions.getInt(j);
+				regionMap[j] = regionId;
+				MemoryUtil.memPutShort(addr + ((long) j << 1), regionId);
 			}
 
 			if (Nvidium.config.statistics_level != StatisticsLoggingLevel.NONE) {
@@ -258,24 +268,33 @@ public class RenderPipeline {
 		}
 
 		{
-			Vector3f delta = new Vector3f((float) (px - (chunkPos.x << 4)), (float) (py - (chunkPos.y << 4)), (float) (pz - (chunkPos.z << 4)));
-			delta.negate();
+			Vector3f delta = this.cameraDelta.set(
+				(float) (px - (chunkX << 4)),
+				(float) (py - (chunkY << 4)),
+				(float) (pz - (chunkZ << 4))
+			).negate();
 			long addr = uploadStream.upload(sceneUniform, 0, SCENE_SIZE);
-			new Matrix4f(crm.projection())
+			this.viewProjection.set(crm.projection())
 				.mul(crm.modelView())
 				.translate(delta)//Translate the subchunk position
 				.getToAddress(addr);
 			addr += 4 * 4 * 4;
 			if (this.compiledForFog) {
-				new Matrix4f(crm.projection())
+				this.inverseViewProjection.set(crm.projection())
 					.mul(crm.modelView())
 					.invert()
 					.getToAddress(addr);
 				addr += 4 * 4 * 4;
 			}
-			new Vector4i(chunkPos.x, chunkPos.y, chunkPos.z, 0).getToAddress(addr);//Chunk the camera is in
+			MemoryUtil.memPutInt(addr, chunkX);
+			MemoryUtil.memPutInt(addr + 4, chunkY);
+			MemoryUtil.memPutInt(addr + 8, chunkZ);
+			MemoryUtil.memPutInt(addr + 12, 0);
 			addr += 16;
-			new Vector4f(delta, 0).getToAddress(addr);//Subchunk offset (note, delta is already negated)
+			MemoryUtil.memPutFloat(addr, delta.x);
+			MemoryUtil.memPutFloat(addr + 4, delta.y);
+			MemoryUtil.memPutFloat(addr + 8, delta.z);
+			MemoryUtil.memPutFloat(addr + 12, 0.0f);
 			addr += 16;
 			MemoryUtil.memPutLong(addr, sceneUniform.getDeviceAddress() + SCENE_SIZE);//Put in the location of the region indexs
 			addr += 8;
@@ -312,11 +331,16 @@ public class RenderPipeline {
 			addr += 4;
 			MemoryUtil.memPutFloat(addr, ((float) screenHeight) / 2);
 			addr += 4;
-			new Vector4f(fogParameters.red(), fogParameters.green(), fogParameters.blue(), fogParameters.alpha()).getToAddress(addr);
+			MemoryUtil.memPutFloat(addr, fogParameters.red());
+			MemoryUtil.memPutFloat(addr + 4, fogParameters.green());
+			MemoryUtil.memPutFloat(addr + 8, fogParameters.blue());
+			MemoryUtil.memPutFloat(addr + 12, fogParameters.alpha());
 			addr += 16;
-			new Vector2f(fogParameters.environmentalStart(), fogParameters.environmentalEnd()).getToAddress(addr);
+			MemoryUtil.memPutFloat(addr, fogParameters.environmentalStart());
+			MemoryUtil.memPutFloat(addr + 4, fogParameters.environmentalEnd());
 			addr += 8;
-			new Vector2f(fogParameters.renderStart(), fogParameters.renderEnd()).getToAddress(addr);
+			MemoryUtil.memPutFloat(addr, fogParameters.renderStart());
+			MemoryUtil.memPutFloat(addr + 4, fogParameters.renderEnd());
 			addr += 8;
 			MemoryUtil.memPutFloat(addr, subTexelWidth);
 			addr += 4;

@@ -35,15 +35,15 @@ public class RegionVisibilityTracker {
 	public void computeVisibility(int regionCount, Buffer regionVisibilityBuffer, short[] regionMapping) {
 		if (regionCount == 0) return;
 		shader.bind();
-		fram++;
+		int frameId = ++fram;
 		glDrawMeshTasksNV(0, (regionCount + 3) / 4);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		downStream.download(regionVisibilityBuffer, 0, regionCount, ptr -> {
-			for (int i = 0; i < regionMapping.length; i++) {
-				int rid = regionMapping[i];
+			for (int i = 0; i < regionCount; i++) {
+				int rid = Short.toUnsignedInt(regionMapping[i]);
 				frustum[rid]++;
 				if (MemoryUtil.memGetByte(ptr + i) == 1) {
-					visible[rid] = fram;
+					visible[rid] = frameId;
 				}
 			}
 		});
