@@ -88,19 +88,18 @@ void main() {
         return;
     }
 
-    vec3 mins = (header.xyz&0xF)-ADD_SIZE;
-    vec3 maxs = mins+((header.xyz>>4)&0xF)+1+(ADD_SIZE*2);
-    ivec3 chunk = ivec3(header.xyz)>>8;
+    vec3 mins = (header.xyz & 0xF) - ADD_SIZE;
+    vec3 maxs = mins + ((header.xyz >> 4) & 0xF) + 1.0 + (ADD_SIZE * 2.0);
+    ivec3 chunk = ivec3(header.xyz) >> 8;
     chunk.y &= 0x1ff;
-    chunk.y <<= 32-9;
-    chunk.y >>= 32-9;
+    chunk.y <<= 32 - 9;
+    chunk.y >>= 32 - 9;
 
-    ivec3 relativeChunkPos = (chunk + chunkShift);
-    vec3 corner = vec3(relativeChunkPos<<4);
-    vec3 cornerCopy = corner;
+    ivec3 relativeChunkPos = chunk + chunkShift;
+    vec3 corner = vec3(relativeChunkPos << 4);
 
     corner += vec3(((tid&1)==0)?mins.x:maxs.x, ((tid&4)==0)?mins.y:maxs.y, ((tid&2)==0)?mins.z:maxs.z);
-    gl_MeshVerticesNV[gl_LocalInvocationID.x].gl_Position = (MVP*(regionTransform*vec4(corner, 1.0)));
+    gl_MeshVerticesNV[gl_LocalInvocationID.x].gl_Position = MVP * (regionTransform * vec4(corner, 1.0));
 
     int prim_payload = (visibilityIndex<<8)|int(((uint(lastData))<<1)&0xff)|1;
 
@@ -109,9 +108,10 @@ void main() {
         emitParital(batchIdx, prim_payload);
     }
     if (tid == 0) {
-        cornerCopy += subchunkOffset.xyz;
-        vec3 minPos = mins + cornerCopy;
-        vec3 maxPos = maxs + cornerCopy;
+        // Compute subchunk-relative min/max for camera-in-section test
+        vec3 sectionOrigin = vec3(relativeChunkPos << 4) + subchunkOffset.xyz;
+        vec3 minPos = mins + sectionOrigin;
+        vec3 maxPos = maxs + sectionOrigin;
         bool isInSection = all(lessThan(minPos, vec3(ADD_SIZE))) && all(lessThan(vec3(-ADD_SIZE), maxPos));
 
         // Shift history left and inject current visibility; retains last 8 frames

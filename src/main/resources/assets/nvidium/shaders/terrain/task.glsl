@@ -17,7 +17,7 @@
 layout(local_size_x=1) in;
 
 bool shouldRenderVisible(uint sectionId) {
-    return (sectionVisibility[sectionId]&uint8_t(1)) != uint8_t(0);
+    return (sectionVisibility[sectionId] & uint8_t(1)) != uint8_t(0);
 }
 
 #moj_import <nvidium:terrain/task_common2.glsl>
@@ -26,23 +26,23 @@ void main() {
     uint sectionId = sectionIndices[gl_WorkGroupID.x].x + (gl_WorkGroupID.x & 0xFFFFFF00);
 
     #ifdef STATISTICS_SECTIONS
-    atomicAdd(statistics_buffer+1, 1);
+    atomicAdd(statistics_buffer + 1, 1);
     #endif
 
     ivec4 header = sectionData[sectionId].header;
-    ivec3 chunk = ivec3(header.xyz)>>8;
+    ivec3 chunk = ivec3(header.xyz) >> 8;
     chunk.y &= 0x1ff;
-    chunk.y <<= 32-9;
-    chunk.y >>= 32-9;
+    chunk.y <<= 32 - 9;
+    chunk.y >>= 32 - 9;
     chunk -= chunkPosition.xyz;
-    transformationId = unpackRegionTransformId(regionData[sectionId>>8]);
+    transformationId = unpackRegionTransformId(regionData[sectionId >> 8]);
     chunk -= unpackOriginOffsetId(transformationId);
 
-    origin = vec3(chunk<<4);
+    origin = vec3(chunk << 4);
     populateTasks(chunk, uint(header.w), uvec4(sectionData[sectionId].renderRanges));
 
 
     #ifdef STATISTICS_QUADS
-    atomicAdd(statistics_buffer+2, quadCount);
+    atomicAdd(statistics_buffer + 2, quadCount);
     #endif
 }

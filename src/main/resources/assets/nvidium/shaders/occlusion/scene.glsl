@@ -56,7 +56,6 @@ bool sectionEmpty(ivec4 header) {
     return header == ivec4(0);
 }
 
-
 layout(std140, binding=0) uniform SceneData {
     // Fields must be ordered by alignment (largest first)
 

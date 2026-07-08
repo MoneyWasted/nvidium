@@ -11,10 +11,11 @@ taskNV out Task {
 };
 
 bvec3 and(bvec3 a, bvec3 b) {
-    return bvec3(a.x&&b.x, a.y&&b.y, a.z&&b.z);
+    return bvec3(a.x && b.x, a.y && b.y, a.z && b.z);
 }
 
-#define BIN(br, cnt) if (br) { if (!pset) {starts[i] = sum; offsets[i++] = off;} sum += cnt; } pset = br; off += cnt;
+// BIN: advance bin pointer if the face is visible; record start/offset on first visible face
+#define BIN(br, cnt) if (br) { if (!pset) { starts[i] = sum; offsets[i++] = off; } sum += cnt; } pset = br; off += cnt;
 uint buildBinData(out uvec4 starts, out uvec4 offsets, out uint sum, uint off, uint naa, bvec3 a, bvec3 b, uvec3 cA, uvec3 cB) {
     bool pset = false;
     sum = 0;
@@ -50,12 +51,12 @@ void populateTasks(ivec3 relative, uint baseOffset, uvec4 ranges) {
     uvec4 offsets;
     uint sum;
     // Adding baseOffset here avoids needing to pass it separately downstream
-    uint ci = buildBinData(starts, offsets, sum, (ranges.w>>16)+baseOffset, ranges.w&0xFFFFu, a, b, cA, cB);
+    uint ci = buildBinData(starts, offsets, sum, (ranges.w >> 16) + baseOffset, ranges.w & 0xFFFFu, a, b, cA, cB);
 
     binStarts = starts;
     binOffsets = offsets - starts; // Store delta from start rather than absolute offset
 
     quadCount = sum;
     // Emit enough mesh shaders such that max(gl_GlobalInvocationID.x) >= 2*quadCount
-    gl_TaskCountNV = ((sum*2)+MESH_WORKLOAD_PER_INVOCATION-1)/MESH_WORKLOAD_PER_INVOCATION;
+    gl_TaskCountNV = ((sum * 2) + MESH_WORKLOAD_PER_INVOCATION - 1) / MESH_WORKLOAD_PER_INVOCATION;
 }

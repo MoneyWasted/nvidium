@@ -22,20 +22,20 @@ void main() {
     uint sectionId = sectionIndices[gl_WorkGroupID.x].z + (gl_WorkGroupID.x & 0xFFFFFF00);
 
     ivec4 header = sectionData[sectionId].header;
-    ivec3 chunk = ivec3(header.xyz)>>8;
+    ivec3 chunk = ivec3(header.xyz) >> 8;
     chunk.y &= 0x1ff;
-    chunk.y <<= 32-9;
-    chunk.y >>= 32-9;
+    chunk.y <<= 32 - 9;
+    chunk.y >>= 32 - 9;
     chunk -= chunkPosition.xyz;
 
-    transformationId = unpackRegionTransformId(regionData[sectionId>>8]);
+    transformationId = unpackRegionTransformId(regionData[sectionId >> 8]);
     chunk -= unpackOriginOffsetId(transformationId);
 
-    origin = vec3(chunk<<4);
+    origin = vec3(chunk << 4);
 
     populateTasks(chunk, uint(header.w), uvec4(sectionData[sectionId].renderRanges));
 
     #ifdef STATISTICS_QUADS
-    atomicAdd(statistics_buffer+2, quadCount);
+    atomicAdd(statistics_buffer + 2, quadCount);
     #endif
 }

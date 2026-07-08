@@ -6,8 +6,6 @@ layout(local_size_x = (SORTING_NETWORK_SIZE>>1), local_size_y = 1 , local_size_z
 #moj_import <nvidium:occlusion/scene.glsl>
 #moj_import <nvidium:sorting/sorting_network.glsl>
 
-
-
 void populateSection(uint regionId, uint8_t sectionId) {
     ivec4 sectionHeader = sectionData[(regionId<<8)|uint(sectionId)].header;
     if (sectionEmpty(sectionHeader)) {
@@ -24,7 +22,8 @@ void populateSection(uint regionId, uint8_t sectionId) {
 
 uint regionId = 0;
 
-// No need to access the region header — section headers contain all required data
+// No need to access the region header — section headers contain all required data.
+// Returns false unconditionally; kept as a function for structural symmetry with main().
 bool populate() {
     regionId = sortingRegionList[gl_WorkGroupID.x];
     populateSection(regionId, uint8_t(gl_LocalInvocationID.x<<1));
@@ -47,8 +46,6 @@ void update() {
     updateSection(regionId, uint8_t(gl_LocalInvocationID.x<<1));
     updateSection(regionId, uint8_t((gl_LocalInvocationID.x<<1)|1));
 }
-
-
 
 void main() {
     if (populate()) {

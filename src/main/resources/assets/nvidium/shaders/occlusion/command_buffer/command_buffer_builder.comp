@@ -35,11 +35,13 @@ void main() {
 
     uint baseSectionId = uint(regionIndicies[gl_WorkGroupID.x]) << 8;
 
+    // Pass 1: count visible sections in each category (terrain / translucent / temporal)
     uvec3 renderCounts = uvec3(0);
     for (uint i = 0; i < 8; i++) {
         uint visibilityIndex = baseSectionId + gl_LocalInvocationID.x * 8 + i;
         uint8_t visibilityData = sectionVisibility[visibilityIndex];
 
+        // Cache the reflected translucent index — reused in pass 2
         uint translucentVisibilityIndex = getReflectedTranslucentSectionId(visibilityIndex);
         uint8_t translucentVisibilityData = sectionVisibility[translucentVisibilityIndex];
 
@@ -53,6 +55,7 @@ void main() {
     uvec3 workId = subgroupExclusiveAdd(renderCounts);
     uvec3 totalSectionCount = subgroupAdd(renderCounts);
 
+    // Pass 2: scatter visible section ids into the output index arrays
     for (uint i = 0; i < 8; i++) {
         uint visibilityIndex = baseSectionId + gl_LocalInvocationID.x * 8 + i;
         uint visibilityData = sectionVisibility[visibilityIndex];
@@ -61,6 +64,7 @@ void main() {
             sectionIndices[baseSectionId + workId.x++].x = uint8_t(visibilityIndex & 0xFF);
         }
 
+        // Recompute reflected index — can't store across loops without shared mem
         uint translucentVisibilityIndex = getReflectedTranslucentSectionId(visibilityIndex);
         uint translucentVisibilityData = sectionVisibility[translucentVisibilityIndex];
 

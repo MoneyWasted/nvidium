@@ -7,12 +7,13 @@ import it.unimi.dsi.fastutil.longs.LongRBTreeSet;
 public class SegmentedManager {
 	public static final long SIZE_LIMIT = -1;
 
-	private final int ADDR_BITS = 34;//This gives max size per allocation of 2^30 and max address of 2^39
-	private final int SIZE_BITS = 64 - ADDR_BITS;
-	private final long SIZE_MSK = (1L << SIZE_BITS) - 1;
-	private final long ADDR_MSK = (1L << ADDR_BITS) - 1;
-	private final LongRBTreeSet FREE = new LongRBTreeSet();//Size Address
-	private final LongRBTreeSet TAKEN = new LongRBTreeSet();//Address Size
+	// 34 addr bits → max allocation size 2^30, max address 2^39
+	private static final int ADDR_BITS = 34;
+	private static final int SIZE_BITS = 64 - ADDR_BITS;
+	private static final long SIZE_MSK = (1L << SIZE_BITS) - 1;
+	private static final long ADDR_MSK = (1L << ADDR_BITS) - 1;
+	private final LongRBTreeSet FREE = new LongRBTreeSet(); // Size | Address
+	private final LongRBTreeSet TAKEN = new LongRBTreeSet(); // Address | Size
 	//Flags
 	public boolean resized;//If the required memory of the entire buffer grew
 	private long sizeLimit = Long.MAX_VALUE;

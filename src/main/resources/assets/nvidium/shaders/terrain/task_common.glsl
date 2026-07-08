@@ -39,49 +39,40 @@ void populateTasks(ivec3 relChunkPos, uvec4 ranges) {
     binIa = uvec4(0);
     binIb = uvec4(0);
 
-    uint fr = (ranges.w>>16)&0xFFFF;
+    // Pre-extract all per-face quad counts once; avoids repeated masking
+    uint dxN = (ranges.x      ) & 0xFFFFu; // -X (nX)
+    uint dyN = (ranges.x >> 16) & 0xFFFFu; // -Y
+    uint dzN = (ranges.y      ) & 0xFFFFu; // -Z
+    uint dxP = (ranges.y >> 16) & 0xFFFFu; // +X
+    uint dyP = (ranges.z      ) & 0xFFFFu; // +Y
+    uint dzP = (ranges.z >> 16) & 0xFFFFu; // +Z
+    uint dNA = (ranges.w      ) & 0xFFFFu; // non-axis-aligned (double-sided)
 
-    uint delta = (ranges.x&0xFFFF);
-    if (relChunkPos.x <= 0 && delta > 0) {
-        putBinData(idx, lastIndex, fr, fr + delta);
-    }
-    fr += ranges.x&0xFFFF;
+    uint fr = (ranges.w >> 16) & 0xFFFFu;  // base quad offset
 
-    delta = ((ranges.x>>16)&0xFFFF);
-    if (relChunkPos.y <= 0 && delta > 0) {
-        putBinData(idx, lastIndex, fr, fr + delta);
-    }
-    fr += (ranges.x>>16)&0xFFFF;
+    if (relChunkPos.x <= 0 && dxN > 0) { putBinData(idx, lastIndex, fr, fr + dxN); }
+    fr += dxN;
 
-    delta = ranges.y&0xFFFF;
-    if (relChunkPos.z <= 0 && delta > 0) {
-        putBinData(idx, lastIndex, fr, fr + delta);
-    }
-    fr += ranges.y&0xFFFF;
+    if (relChunkPos.y <= 0 && dyN > 0) { putBinData(idx, lastIndex, fr, fr + dyN); }
+    fr += dyN;
 
-    delta = (ranges.y>>16)&0xFFFF;
-    if (relChunkPos.x >= 0 && delta > 0) {
-        putBinData(idx, lastIndex, fr, fr + delta);
-    }
-    fr += (ranges.y>>16)&0xFFFF;
+    if (relChunkPos.z <= 0 && dzN > 0) { putBinData(idx, lastIndex, fr, fr + dzN); }
+    fr += dzN;
 
-    delta = ranges.z&0xFFFF;
-    if (relChunkPos.y >= 0 && delta > 0) {
-        putBinData(idx, lastIndex, fr, fr + delta);
-    }
-    fr += ranges.z&0xFFFF;
+    if (relChunkPos.x >= 0 && dxP > 0) { putBinData(idx, lastIndex, fr, fr + dxP); }
+    fr += dxP;
 
-    delta = (ranges.z>>16)&0xFFFF;
-    if (relChunkPos.z >= 0 && delta > 0) {
-        putBinData(idx, lastIndex, fr, fr + delta);
-    }
-    fr += (ranges.z>>16)&0xFFFF;
+    if (relChunkPos.y >= 0 && dyP > 0) { putBinData(idx, lastIndex, fr, fr + dyP); }
+    fr += dyP;
+
+    if (relChunkPos.z >= 0 && dzP > 0) { putBinData(idx, lastIndex, fr, fr + dzP); }
+    fr += dzP;
 
     // TODO: put double-sided quads first — may be cheaper
-    putBinData(idx, lastIndex, fr, fr + (ranges.w&0xFFFF));
+    putBinData(idx, lastIndex, fr, fr + dNA);
 
     quadCount = lastIndex;
 
     // Emit enough mesh shaders such that max(gl_GlobalInvocationID.x) >= 2*quadCount
-    gl_TaskCountNV = ((lastIndex*2)+MESH_WORKLOAD_PER_INVOCATION-1)/MESH_WORKLOAD_PER_INVOCATION;
+    gl_TaskCountNV = ((lastIndex * 2) + MESH_WORKLOAD_PER_INVOCATION - 1) / MESH_WORKLOAD_PER_INVOCATION;
 }

@@ -49,8 +49,7 @@ public class RegionManager {
 	}
 
 	public void delete() {
-		this.regionBuffer.delete();
-		this.sectionBuffer.delete();
+		this.destroy();
 	}
 
 	// Commits all pending region changes to the GPU
@@ -195,8 +194,10 @@ public class RegionManager {
 			this.regions[region.id] = null;
 			this.idProvider.release(region.id);
 			this.regionMap.remove(region.key);
+			// Region is gone; no need to verify integrity or queue a GPU update
+			this.markDirty(region);
+			return;
 		}
-
 
 		this.markDirty(region);
 		region.verifyIntegrity();

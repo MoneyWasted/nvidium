@@ -301,7 +301,3 @@ public class SectionManager {
 		}
 	}
 }
-
-
-
-

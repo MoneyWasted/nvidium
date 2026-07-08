@@ -23,7 +23,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.TextureFilteringMethod;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import org.joml.*;
-import org.lwjgl.opengl.GL11C;
 import org.lwjgl.system.MemoryUtil;
 
 import java.util.BitSet;
@@ -339,6 +338,7 @@ public class RenderPipeline {
 		}
 
 		if (Nvidium.config.translucency_sorting_level == TranslucencySortingLevel.NONE) {
+			// Sorting is disabled; no need to accumulate sort requests
 			regionsToSort.clear();
 		}
 
@@ -418,7 +418,7 @@ public class RenderPipeline {
 		glDisableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
 		glDisableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
 		glDisableClientState(GL_DRAW_INDIRECT_UNIFIED_NV);
-		glDepthFunc(GL11C.GL_GEQUAL);
+		// GL_GEQUAL was already set earlier; no-op reset removed.
 	}
 
 	void enqueueRegionSort(int regionId) {
@@ -451,7 +451,7 @@ public class RenderPipeline {
 		glDisableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
 		glDisableClientState(GL_DRAW_INDIRECT_UNIFIED_NV);
 
-		// Download statistics
+		// Download statistics and reset the GPU buffer in one guarded block
 		if (Nvidium.config.statistics_level.ordinal() > StatisticsLoggingLevel.FRUSTUM.ordinal()) {
 			downloadStream.download(statisticsBuffer, 0, 4 * 4, (addr) -> {
 				stats.regionCount = MemoryUtil.memGetInt(addr);
@@ -459,9 +459,6 @@ public class RenderPipeline {
 				stats.quadCount = MemoryUtil.memGetInt(addr + 8);
 				stats.cullCount = MemoryUtil.memGetInt(addr + 12);
 			});
-		}
-
-		if (Nvidium.config.statistics_level.ordinal() > StatisticsLoggingLevel.FRUSTUM.ordinal()) {
 			// NV driver doesn't follow spec here; use upload stream to clear instead of glClearNamedBufferSubData
 			long upload = this.uploadStream.upload(statisticsBuffer, 0, 4 * 4);
 			MemoryUtil.memSet(upload, 0, 4 * 4);
@@ -500,24 +497,25 @@ public class RenderPipeline {
 
 	public void addDebugInfo(List<String> info) {
 		if (Nvidium.config.statistics_level != StatisticsLoggingLevel.NONE) {
-			StringBuilder builder = new StringBuilder();
-			builder.append("Statistics: ");
-			if (Nvidium.config.statistics_level.ordinal() >= StatisticsLoggingLevel.FRUSTUM.ordinal()) {
+			// Cache ordinal once to avoid repeated virtual dispatch
+			int statsOrdinal = Nvidium.config.statistics_level.ordinal();
+			StringBuilder builder = new StringBuilder("Statistics: ");
+			if (statsOrdinal >= StatisticsLoggingLevel.FRUSTUM.ordinal()) {
 				builder.append("F: ").append(stats.frustumCount);
 			}
-			if (Nvidium.config.statistics_level.ordinal() >= StatisticsLoggingLevel.REGIONS.ordinal()) {
+			if (statsOrdinal >= StatisticsLoggingLevel.REGIONS.ordinal()) {
 				builder.append(", R: ").append(stats.regionCount);
 			}
-			if (Nvidium.config.statistics_level.ordinal() >= StatisticsLoggingLevel.SECTIONS.ordinal()) {
+			if (statsOrdinal >= StatisticsLoggingLevel.SECTIONS.ordinal()) {
 				builder.append(", S: ").append(stats.sectionCount);
 			}
-			if (Nvidium.config.statistics_level.ordinal() >= StatisticsLoggingLevel.QUADS.ordinal()) {
+			if (statsOrdinal >= StatisticsLoggingLevel.QUADS.ordinal()) {
 				builder.append(", Q: ").append(stats.quadCount);
 			}
-			if (Nvidium.config.statistics_level.ordinal() >= StatisticsLoggingLevel.CULL.ordinal()) {
+			if (statsOrdinal >= StatisticsLoggingLevel.CULL.ordinal()) {
 				builder.append(", C: ").append(stats.cullCount);
 			}
-			info.addAll(List.of(builder.toString().split("\n")));
+			info.add(builder.toString());
 		}
 		info.add("Primary Terrain frame time: " + String.format("%.03f", terrainRasterizer.getTiming().getAverageMs()) + "ms");
 		info.add("Translucent frame time: " + String.format("%.03f", translucencyTerrainRasterizer.getTiming().getAverageMs()) + "ms");

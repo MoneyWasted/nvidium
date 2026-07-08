@@ -103,9 +103,6 @@ void swapQuads(uint idxA, uint idxB) {
     Vertex B1 = terrainData[(idxB<<2)+1];
     Vertex B2 = terrainData[(idxB<<2)+2];
     Vertex B3 = terrainData[(idxB<<2)+3];
-    //groupMemoryBarrier();
-    //memoryBarrier();
-    //barrier();
     terrainData[(idxA<<2)+0] = B0;
     terrainData[(idxA<<2)+1] = B1;
     terrainData[(idxA<<2)+2] = B2;
@@ -114,15 +111,13 @@ void swapQuads(uint idxA, uint idxB) {
     terrainData[(idxB<<2)+1] = A1;
     terrainData[(idxB<<2)+2] = A2;
     terrainData[(idxB<<2)+3] = A3;
-    //groupMemoryBarrier();
-    //memoryBarrier();
-    //barrier();
 }
 
 void performTranslucencySort() {
     uint baseQuadPtr = floatBitsToUint(originAndBaseData.w) + (gl_WorkGroupID.x<<5);
 
-    float depth = dot(depthPos, depthPos) * ((1/4.0f)*(1/4.0f));
+    // dot(depthPos/4, depthPos/4) == dot(depthPos,depthPos) * 0.0625
+    float depth = dot(depthPos, depthPos) * 0.0625;
     depthBuffers[gl_LocalInvocationID.x] = depth;
 
     if (gl_GlobalInvocationID.x < jiggle) {

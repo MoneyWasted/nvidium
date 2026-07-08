@@ -33,15 +33,17 @@ public class RegionVisibilityTracker {
 
 	// Reuses the visibility buffer to track per-region visibility
 	public void computeVisibility(int regionCount, Buffer regionVisibilityBuffer, short[] regionMapping) {
+		if (regionCount == 0) return;
 		shader.bind();
 		fram++;
 		glDrawMeshTasksNV(0, (regionCount + 3) / 4);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		downStream.download(regionVisibilityBuffer, 0, regionCount, ptr -> {
 			for (int i = 0; i < regionMapping.length; i++) {
-				frustum[regionMapping[i]]++;
+				int rid = regionMapping[i];
+				frustum[rid]++;
 				if (MemoryUtil.memGetByte(ptr + i) == 1) {
-					visible[regionMapping[i]] = fram;
+					visible[rid] = fram;
 				}
 			}
 		});

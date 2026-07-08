@@ -7,8 +7,6 @@ import net.caffeinemc.mods.sodium.client.model.quad.properties.ModelQuadFacing;
 import net.caffeinemc.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
 import net.caffeinemc.mods.sodium.client.render.chunk.data.BuiltSectionMeshParts;
 import net.caffeinemc.mods.sodium.client.render.chunk.terrain.DefaultTerrainRenderPasses;
-import net.caffeinemc.mods.sodium.client.render.chunk.vertex.format.ChunkMeshFormats;
-import net.caffeinemc.mods.sodium.client.render.chunk.vertex.format.impl.CompactChunkVertex;
 import net.caffeinemc.mods.sodium.client.util.NativeBuffer;
 import net.minecraft.client.Minecraft;
 import org.joml.Vector3i;
@@ -47,17 +45,13 @@ public class SodiumResultCompatibility {
 			size.z = Math.min(15, Math.max(size.z, 0));
 		}
 		var repackagedGeometry = new RepackagedSectionOutput((geometryBytes / formatSize) / 4, output, offsets, min, size);
-		//NvidiumGeometryReencoder.transpileGeometry(repackagedGeometry);
 		return repackagedGeometry;
 	}
 
 
-	private static void copyQuad(long from, long too) {
-		//Quads are 64 bytes big using NvidiumCompactChunkVertex otherwise 80 bytes using CompactChunkVertex
-		long quadSize = Nvidium.config.use_sodium_vertex_format ?
-			CompactChunkVertex.STRIDE * 4 :
-			NvidiumCompactChunkVertex.STRIDE * 4;
-		MemoryUtil.memCopy(from, too, quadSize);
+	private static void copyQuad(long from, long to, int formatSize) {
+		// Each quad is 4 vertices; formatSize is the per-vertex byte size
+		MemoryUtil.memCopy(from, to, (long) formatSize * 4);
 	}
 
 	private static int[] computeRanges(int[] segments) {
@@ -81,10 +75,11 @@ public class SodiumResultCompatibility {
 		long src = MemoryUtil.memAddress(meshData.getVertexData().getDirectBuffer()) + (long) offset * formatSize;
 		MemoryUtil.memCopy(src, dst, (long) count * formatSize);
 
-		//Update the meta bits of the model format
+		// Cache config flag once outside the per-vertex loop
+		boolean useSodiumFmt = Nvidium.config.use_sodium_vertex_format;
 		for (int j = 0; j < count; j++) {
 			long base = dst + (long) j * formatSize;
-			updateSectionBounds(min, max, base);
+			updateSectionBounds(min, max, base, useSodiumFmt);
 		}
 
 		return count / 4;
@@ -122,16 +117,11 @@ public class SodiumResultCompatibility {
 
 			{//Project the camera pos onto the bounding outline of the chunk (-8 -> 24 for each axis)
 				float len = (float) Math.sqrt(cpx * cpx + cpy * cpy + cpz * cpz);
-				cpx *= 1 / len;
-				cpy *= 1 / len;
-				cpz *= 1 / len;
-
-				//The max range of the camera can be is like 32 blocks away so just use that
-				len = Math.min(len, 32);
-
-				cpx *= len;
-				cpy *= len;
-				cpz *= len;
+				// clamp length to 32 blocks, then normalize and rescale in one step
+				float scale = Math.min(len, 32) / len;
+				cpx *= scale;
+				cpy *= scale;
+				cpz *= scale;
 			}
 
 			int quadCount = translucentData.getVertexData().getLength() / (formatSize * 4);
@@ -151,12 +141,13 @@ public class SodiumResultCompatibility {
 				float cx = 0;
 				float cy = 0;
 				float cz = 0;
+				boolean useSodiumFmt = Nvidium.config.use_sodium_vertex_format;
 				//Update the meta bits of the model format
 				for (int j = 0; j < count; j++) {
 					long base = src + (long) j * formatSize;
 
 					float x, y, z;
-					if (Nvidium.config.use_sodium_vertex_format) {
+					if (useSodiumFmt) {
 						int hi = MemoryUtil.memGetInt(base);
 						int lo = MemoryUtil.memGetInt(base + 4);
 
@@ -169,17 +160,17 @@ public class SodiumResultCompatibility {
 						y = decodePosition(MemoryUtil.memGetShort(base + 2));
 						z = decodePosition(MemoryUtil.memGetShort(base + 4));
 					}
-					updateSectionBounds(min, max, base);
+					updateSectionBounds(min, max, x, y, z);
 
 					cx += x;
 					cy += y;
 					cz += z;
 
 					if ((j & 3) == 3) {
-						//Compute the center point of the vertex
-						cx *= 1 / 4f;
-						cy *= 1 / 4f;
-						cz *= 1 / 4f;
+						// Compute the centre of the quad (average of 4 vertices)
+						cx *= 0.25f;
+						cy *= 0.25f;
+						cz *= 0.25f;
 
 						//Distance to camera
 						float dx = cx - cpx;
@@ -209,7 +200,7 @@ public class SodiumResultCompatibility {
 
 			for (int i = 0; i < sortingData.length; i++) {
 				long data = sortingData[i];
-				copyQuad(srcs[(int) (data & 7)] + ((data >> 3) & ((1L << 29) - 1)) * 4 * formatSize, outPtr + ((sortingData.length - 1) - i) * 4L * formatSize);
+				copyQuad(srcs[(int) (data & 7)] + ((data >> 3) & ((1L << 29) - 1)) * 4 * formatSize, outPtr + ((sortingData.length - 1) - i) * 4L * formatSize, formatSize);
 			}
 			offset += quadCount;
 		}
@@ -266,10 +257,10 @@ public class SodiumResultCompatibility {
 		return (((float) pos) * vertexScale) - 8;
 	}
 
-	private static void updateSectionBounds(Vector3i min, Vector3i max, long vertex) {
+	private static void updateSectionBounds(Vector3i min, Vector3i max, long vertex, boolean useSodiumFmt) {
 		float x, y, z;
 
-		if (Nvidium.config.use_sodium_vertex_format) {
+		if (useSodiumFmt) {
 			int hi = MemoryUtil.memGetInt(vertex);
 			int lo = MemoryUtil.memGetInt(vertex + 4);
 

@@ -72,9 +72,12 @@ public class NvidiumWorldRenderer {
 			renderPipeline.removeARegion();
 		}
 
-		if (Nvidium.SUPPORTS_PERSISTENT_SPARSE_ADDRESSABLE_BUFFER && (System.currentTimeMillis() - lastMemorySampleTime) > 60_000) {
-			lastMemorySampleTime = System.currentTimeMillis();
-			updateAllowedMemory();
+		if (Nvidium.SUPPORTS_PERSISTENT_SPARSE_ADDRESSABLE_BUFFER) {
+			long now = System.currentTimeMillis();
+			if (now - lastMemorySampleTime > 60_000) {
+				lastMemorySampleTime = now;
+				updateAllowedMemory();
+			}
 		}
 	}
 

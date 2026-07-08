@@ -61,12 +61,12 @@ void applyFog(inout vec4 colour) {
 vec4 sampleNearest(vec2 uv, vec2 du, vec2 dv, vec2 texelScreenSize) {
     // Convert our UV back up to texel coordinates and find out how far over we are from the center of each pixel
     vec2 uvTexelCoords = uv / texelSize;
-    vec2 texelCenter = round(uvTexelCoords) - 0.5f;
+    vec2 texelCenter = round(uvTexelCoords) - 0.5;
     vec2 texelOffset = uvTexelCoords - texelCenter;
 
     // Move our offset closer to the texel center based on texel size on screen
-    texelOffset = (texelOffset - 0.5f) * texelSize / texelScreenSize + 0.5f;
-    texelOffset = clamp(texelOffset, 0.0f, 1.0f);
+    texelOffset = (texelOffset - 0.5) * texelSize / texelScreenSize + 0.5;
+    texelOffset = clamp(texelOffset, 0.0, 1.0);
 
     vec2 uvCorrected = (texelCenter + texelOffset) * texelSize;
     return textureGrad(tex_diffuse, uvCorrected, du, dv);
@@ -119,7 +119,7 @@ void main() {
     V2 = terrainData[(quadId<<2)+TRI_INDICIES.z];
 
     #ifdef USE_NV_FRAGMENT_SHADER_BARYCENTRIC
-        float HALF_SHIFT = (1.0f/TEXTURE_MAX_SCALE)/2.0f;
+        float HALF_SHIFT = (1.0 / TEXTURE_MAX_SCALE) / 2.0;
         vec2 uv0 = decodeVertexUV(V0);
         vec2 uvp = decodeVertexUV(Vp);
         vec2 uv2 = decodeVertexUV(V2);

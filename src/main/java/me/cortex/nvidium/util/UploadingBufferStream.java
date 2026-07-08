@@ -14,7 +14,6 @@ import static org.lwjgl.opengl.ARBDirectStateAccess.glCopyNamedBufferSubData;
 import static org.lwjgl.opengl.ARBDirectStateAccess.glFlushMappedNamedBufferRange;
 import static org.lwjgl.opengl.ARBMapBufferRange.*;
 import static org.lwjgl.opengl.GL11.glFinish;
-import static org.lwjgl.opengl.GL11.glGetError;
 import static org.lwjgl.opengl.GL42.glMemoryBarrier;
 import static org.lwjgl.opengl.GL42C.GL_BUFFER_UPDATE_BARRIER_BIT;
 import static org.lwjgl.opengl.GL44.GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
@@ -82,9 +81,11 @@ public class UploadingBufferStream {
 
 
 	public void commit() {
-		//First flush all the allocations and enqueue them to be freed
-		{
-			for (long alloc : flushList) {
+		// Flush all new allocations using a primitive iterator to avoid Long boxing
+		if (!this.flushList.isEmpty()) {
+			var it = this.flushList.iterator();
+			while (it.hasNext()) {
+				long alloc = it.nextLong();
 				glFlushMappedNamedBufferRange(this.uploadBuffer.getId(), alloc, this.allocationArena.getSize(alloc));
 				this.thisFrameAllocations.add(alloc);
 			}

@@ -3,7 +3,7 @@ package me.cortex.nvidium.gl.shader;
 import me.cortex.nvidium.gl.GlObject;
 import org.lwjgl.opengl.GL20C;
 
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 
 import static org.lwjgl.opengl.GL20.glDeleteProgram;
@@ -37,7 +37,7 @@ public class Shader extends GlObject {
 	}
 
 	public static class Builder {
-		private final Map<ShaderType, String> sources = new HashMap<>();
+		private final Map<ShaderType, String> sources = new EnumMap<>(ShaderType.class);
 		private final IShaderProcessor processor;
 
 		private Builder(IShaderProcessor processor) {

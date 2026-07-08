@@ -25,21 +25,6 @@ public class NvidiumCompactChunkVertex implements ChunkVertexType {
 	private static final float TEXTURE_SCALE = (1.0f / TEXTURE_MAX_VALUE);
 
 
-//    @Override
-//    public float getTextureScale() {
-//        return TEXTURE_SCALE;
-//    }
-//
-//    @Override
-//    public float getPositionScale() {
-//        return MODEL_SCALE;
-//    }
-//
-//    @Override
-//    public float getPositionOffset() {
-//        return -MODEL_ORIGIN;
-//    }
-
 	private static int compactLight(int light) {
 		int sky = Mth.clamp((light >>> 16) & 0xFF, 8, 248);
 		int block = Mth.clamp((light >>> 0) & 0xFF, 8, 248);
@@ -48,7 +33,6 @@ public class NvidiumCompactChunkVertex implements ChunkVertexType {
 	}
 
 	private static int encodePosition(float v) {
-		//System.out.println(v + " " + MODEL_ORIGIN + " " + MODEL_RANGE + " " + MODEL_SCALE_INV);
 		return (int) (((MODEL_ORIGIN + v) / MODEL_RANGE) * POSITION_MAX_VALUE);
 	}
 

@@ -74,13 +74,14 @@ void main() {
 
     ivec3 pos = unpackRegionPosition(data);
     pos -= chunkPosition.xyz;
+    // Cache transform id once — avoids repeating the bitfield extraction
     pos -= unpackOriginOffsetId(unpackRegionTransformId(data));
 
     vec3 start = pos - ADD_SIZE;
-    vec3 end = start + 1 + unpackRegionSize(data) + (ADD_SIZE*2);
+    vec3 end = start + 1.0 + unpackRegionSize(data) + (ADD_SIZE * 2.0);
 
     vec3 corner = vec3(((tid&1)==0)?start.x:end.x, ((tid&4)==0)?start.y:end.y, ((tid&2)==0)?start.z:end.z);
-    corner *= 16.0f;
+    corner *= 16.0;
     gl_MeshVerticesNV[gl_LocalInvocationID.x].gl_Position = MVP*(getRegionTransformation(data)*vec4(corner, 1.0));
 
     regionVisibility[visibilityIndex] = uint8_t(0);
